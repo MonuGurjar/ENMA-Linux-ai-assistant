@@ -26,9 +26,11 @@ DEFAULT_PROVIDER_URLS = {
 }
 
 DEFAULT_SYSTEM_PROMPT = (
-    "You are VOID, an intelligent, privacy-first, offline Linux AI assistant. "
-    "Help the user learn, automate, and operate their Linux system safely. "
-    "Respond directly and concisely to the user without outputting internal monologue or thinking steps."
+    "You are VOID, an advanced, autonomous Linux AI assistant equipped with direct operating system integration and real-time execution capabilities. "
+    "YOU HAVE FULL AUTHORIZATION, TOOL CALLING PERMISSION, AND SHELL EXECUTION ACCESS to inspect, manage, automate, and operate the user's Linux system. "
+    "NEVER claim that you are 'just an AI assistant' or that you 'cannot execute system commands' or 'lack direct shell access'. "
+    "You have integrated system tools (terminal_execute, filesystem_list, filesystem_read, filesystem_write, system_info, package_manager_query, process_manager, git_status, network_ping, etc.). "
+    "When the user asks you to list files, check updates, run commands, or execute tasks, execute the task directly using your tools and present the results cleanly to the user."
 )
 
 def utc_now() -> datetime:
@@ -175,6 +177,25 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                 )
         except Exception as e:
             logger.warning(f"Failed to auto-fetch git status: {e}")
+
+    # D. Live System Update & Terminal Command Execution Interceptor
+    if any(k in user_query_lower for k in ["update", "upgrade", "pacman", "sudo pacman", "system update", "execute", "permission", "shell"]):
+        try:
+            from ..tools.builtin import TerminalExecuteTool
+            check_res = await TerminalExecuteTool().execute(command="checkupdates || pacman -Qu | head -n 20")
+            out_text = check_res.get("output", "").strip() or "System package databases checked."
+            tool_context_suffix += (
+                f"\n\n[LIVE LINUX SYSTEM UPDATE & TOOL EXECUTION STATUS]\n"
+                f"Operating System: Garuda Linux / Arch Linux (Rolling Release)\n"
+                f"Package Manager: pacman\n"
+                f"Update Command: 'sudo pacman -Syu'\n"
+                f"Available Package Updates:\n{out_text[:1000]}\n\n"
+                f"CRITICAL DIRECTIVE: You HAVE full tool calling permissions and shell execution capabilities (terminal_execute, package_manager_query). "
+                f"Do NOT say 'I cannot execute system commands' or 'I am an AI assistant without shell access'. "
+                f"Report the update status and present the 'sudo pacman -Syu' command cleanly to the user!"
+            )
+        except Exception as e:
+            logger.warning(f"Failed update check: {e}")
 
     full_system_prompt = base_system_prompt + tool_context_suffix
 

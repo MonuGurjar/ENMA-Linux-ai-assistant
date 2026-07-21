@@ -147,7 +147,7 @@ class FilesystemListTool(Tool):
             "required": ["directory_path"]
         }
 
-    async def execute(self, directory_path: str = None, path: str = None, directory: str = None, **kwargs) -> Dict[str, Any]:
+    async def execute(self, directory_path: str = None, path: str = None, directory: str = None, recursive: bool = True, **kwargs) -> Dict[str, Any]:
         target = directory_path or path or directory or "."
         try:
             full_p = os.path.abspath(os.path.expanduser(target))
@@ -155,14 +155,40 @@ class FilesystemListTool(Tool):
                 return {"error": f"Directory not found: {target}", "success": False}
 
             items = []
-            for item in os.listdir(full_p):
-                fp = os.path.join(full_p, item)
-                items.append({
-                    "name": item,
-                    "is_dir": os.path.isdir(fp),
-                    "size": os.path.getsize(fp) if os.path.isfile(fp) else None
-                })
-            return {"directory": full_p, "items": items, "success": True}
+            if recursive:
+                for root, dirs, files in os.walk(full_p):
+                    rel_root = os.path.relpath(root, full_p)
+                    for f in files:
+                        fp = os.path.join(root, f)
+                        rel_path = f if rel_root == "." else os.path.join(rel_root, f)
+                        try:
+                            f_size = os.path.getsize(fp)
+                        except Exception:
+                            f_size = 0
+                        items.append({
+                            "name": rel_path,
+                            "filename": f,
+                            "is_dir": False,
+                            "size": f_size
+                        })
+                    if len(items) >= 120:
+                        break
+            else:
+                for item in os.listdir(full_p):
+                    fp = os.path.join(full_p, item)
+                    is_d = os.path.isdir(fp)
+                    d_size = 0
+                    if is_d:
+                        try:
+                            d_size = sum(os.path.getsize(os.path.join(r, fn)) for r, d, fns in os.walk(fp) for fn in fns)
+                        except Exception:
+                            d_size = 0
+                    items.append({
+                        "name": item,
+                        "is_dir": is_d,
+                        "size": os.path.getsize(fp) if os.path.isfile(fp) else d_size
+                    })
+            return {"directory": full_p, "items": items, "total_files": len(items), "success": True}
         except Exception as e:
             return {"error": str(e), "success": False}
 

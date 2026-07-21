@@ -128,19 +128,19 @@ async def post_message(conversation_id: int, message: Message, session: Session 
         try:
             from ..tools.builtin import FilesystemListTool
             full_path = os.path.abspath(os.path.expanduser(target_path))
-            files_data = await FilesystemListTool().execute(directory_path=full_path)
+            files_data = await FilesystemListTool().execute(directory_path=full_path, recursive=True)
             if files_data.get("success"):
                 items = files_data.get("items", [])
                 file_summary = "\n".join([
-                    f"- {'📁 [DIR]' if f['is_dir'] else '📄'} {f['name']} ({round((f.get('size') or 0)/1024, 1)} KB)"
-                    for f in items[:50]
+                    f"- {'📁 [DIR]' if f.get('is_dir') else '📄'} {f['name']} ({round((f.get('size') or 0)/1024, 1)} KB)"
+                    for f in items[:80]
                 ])
                 tool_context_suffix += (
                     f"\n\n[LIVE FILESYSTEM TOOL RESULT — {full_path}]\n"
                     f"Directory Path: {full_path}\n"
-                    f"Total Items Found: {len(items)}\n"
-                    f"Real Files Retrieved from User System:\n{file_summary}\n\n"
-                    f"CRITICAL SYSTEM DIRECTIVE: The user asked to list/show files in '{full_path}'. List these actual real files directly in your answer! Do NOT output fake commands or generic explanations!"
+                    f"Total Files Found: {len(items)}\n"
+                    f"Real Files & Subdirectory Files Retrieved from User System:\n{file_summary}\n\n"
+                    f"CRITICAL SYSTEM DIRECTIVE: The user asked to list/show files in '{full_path}'. Present these actual real files (including image, pdf, and subdirectory files) directly in your answer! Do NOT output fake commands or generic explanations!"
                 )
         except Exception as e:
             logger.warning(f"Failed to auto-fetch filesystem for {target_path}: {e}")

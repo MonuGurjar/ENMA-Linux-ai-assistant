@@ -133,14 +133,14 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                 items = files_data.get("items", [])
                 file_summary = "\n".join([
                     f"- {'📁 [DIR]' if f.get('is_dir') else '📄'} {f['name']} ({round((f.get('size') or 0)/1024, 1)} KB)"
-                    for f in items[:80]
+                    for f in items[:35]
                 ])
                 tool_context_suffix += (
                     f"\n\n[LIVE FILESYSTEM TOOL RESULT — {full_path}]\n"
                     f"Directory Path: {full_path}\n"
                     f"Total Files Found: {len(items)}\n"
-                    f"Real Files & Subdirectory Files Retrieved from User System:\n{file_summary}\n\n"
-                    f"CRITICAL SYSTEM DIRECTIVE: The user asked to list/show files in '{full_path}'. Present these actual real files (including image, pdf, and subdirectory files) directly in your answer! Do NOT output fake commands or generic explanations!"
+                    f"Real Files & Subdirectory Files:\n{file_summary}\n\n"
+                    f"CRITICAL SYSTEM DIRECTIVE: The user asked to list/show files in '{full_path}'. Present these actual real files directly in your answer! Do NOT output fake commands or generic explanations!"
                 )
         except Exception as e:
             logger.warning(f"Failed to auto-fetch filesystem for {target_path}: {e}")
@@ -153,11 +153,10 @@ async def post_message(conversation_id: int, message: Message, session: Session 
             tool_context_suffix += (
                 f"\n\n[LIVE LINUX SYSTEM TELEMETRY]\n"
                 f"- OS / Distro: {sys_data.get('distro')} (Kernel {sys_data.get('kernel_release')}, {sys_data.get('machine')})\n"
-                f"- CPU Model: {sys_data.get('cpu_model')} ({sys_data.get('cpu_cores_physical')} physical cores / {sys_data.get('cpu_cores_logical')} logical threads)\n"
+                f"- CPU Model: {sys_data.get('cpu_model')} ({sys_data.get('cpu_cores_physical')} cores)\n"
                 f"- CPU Load: {sys_data.get('cpu_usage_percent')}%\n"
                 f"- RAM Usage: {sys_data.get('ram_used_gb')} GB / {sys_data.get('ram_total_gb')} GB ({sys_data.get('ram_percent')}%)\n"
                 f"- Disk Space: {sys_data.get('disk_free_gb')} GB free out of {sys_data.get('disk_total_gb')} GB ({sys_data.get('disk_percent')}% used)\n"
-                f"Answer the user's question directly using this live hardware & system telemetry data."
             )
         except Exception as e:
             logger.warning(f"Failed to auto-fetch system telemetry: {e}")
@@ -180,7 +179,7 @@ async def post_message(conversation_id: int, message: Message, session: Session 
     full_system_prompt = base_system_prompt + tool_context_suffix
 
     ai_messages = [{"role": "system", "content": full_system_prompt}]
-    for m in past_messages[-20:]:
+    for m in past_messages[-10:]:
         if m.content and m.content.strip():
             clean_content = strip_thinking_tags(m.content.strip())
             if clean_content:
@@ -190,7 +189,7 @@ async def post_message(conversation_id: int, message: Message, session: Session 
         full_thinking = ""
         full_response = ""
         
-        # Method A: Ollama Native Streaming API with structured thinking payload
+        # Method A: Ollama Native Streaming API with structured thinking payload & 64k context
         if req_provider == "ollama":
             try:
                 async with httpx.AsyncClient(timeout=300.0) as http_client:
@@ -200,7 +199,9 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                         json={
                             "model": model_name,
                             "messages": ai_messages,
-                            "tools": registry.get_openai_tools(),
+                            "options": {
+                                "num_ctx": 65536
+                            },
                             "stream": True
                         }
                     ) as response:
@@ -219,11 +220,9 @@ async def post_message(conversation_id: int, message: Message, session: Session 
 
                                 if thinking_piece:
                                     full_thinking += thinking_piece
-                                    # Send thinking explicitly under 'thinking' key
                                     yield f"data: {json.dumps({'thinking': thinking_piece})}\n\n"
                                 elif content_piece:
                                     full_response += content_piece
-                                    # Send response explicitly under 'content' key
                                     yield f"data: {json.dumps({'content': content_piece})}\n\n"
 
                                 if data.get("done", False):
@@ -236,9 +235,7 @@ async def post_message(conversation_id: int, message: Message, session: Session 
             finally:
                 yield "data: [DONE]\n\n"
                 
-                # Format final stored content with <think> tag if thinking exists, otherwise clean response
                 final_saved_content = f"<think>\n{full_thinking.strip()}\n</think>\n\n{full_response.strip()}" if full_thinking.strip() else full_response.strip()
-                
                 if final_saved_content and final_saved_content.strip():
                     with Session(engine) as db_session:
                         assistant_msg = Message(
@@ -252,7 +249,7 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                         db_session.commit()
             return
 
-        # Method B: OpenAI SDK for LM Studio, vLLM, Custom
+        # Method B: OpenAI SDK for LM Studio, vLLM, Custom with 64k Context Length
         if req_provider in DEFAULT_PROVIDER_URLS:
             base_url = DEFAULT_PROVIDER_URLS[req_provider]
         elif req_provider == "custom":
@@ -269,11 +266,13 @@ async def post_message(conversation_id: int, message: Message, session: Session 
         )
 
         try:
-            openai_tools = registry.get_openai_tools()
             stream = await client.chat.completions.create(
                 model=model_name,
                 messages=ai_messages,
-                tools=openai_tools if len(openai_tools) > 0 else None,
+                extra_body={
+                    "num_ctx": 65536,
+                    "n_ctx": 65536
+                },
                 stream=True
             )
             

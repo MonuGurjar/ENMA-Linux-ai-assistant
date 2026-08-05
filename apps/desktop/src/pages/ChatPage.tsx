@@ -239,7 +239,10 @@ export function ChatPage() {
       }
     } catch (err: any) {
       console.error("Failed to send message", err);
-      setError(err.message || "An error occurred");
+      const errMsg = err.message === "Failed to fetch"
+        ? "Backend connection failed. Please ensure the FastAPI backend is running via ./start.sh"
+        : (err.message || "An error occurred");
+      setError(errMsg);
       setMessages((prev) => {
         if (prev.length > 0 && prev[prev.length - 1].role === "assistant" && !prev[prev.length - 1].content) {
           return prev.slice(0, -1);

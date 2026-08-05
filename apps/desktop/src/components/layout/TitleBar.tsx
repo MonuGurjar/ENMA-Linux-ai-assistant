@@ -7,9 +7,12 @@ import { PanelLeft } from 'lucide-react';
 import { VoidLogo } from '@/components/ui/VoidLogo';
 import { useTheme } from '@/hooks/useTheme';
 
+import { useModelSelection } from '@/hooks/useModelSelection';
+
 export function TitleBar() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { selectedModel, models } = useModelSelection();
   let toggleSidebar = () => {};
   try {
     const sidebar = useSidebar();
@@ -18,40 +21,34 @@ export function TitleBar() {
     // Graceful fallback if mounted outside SidebarProvider
   }
   const [isMaximized, setIsMaximized] = useState(false);
-  const [modelName, setModelName] = useState("Loading...");
+  const [isBackendConnected, setIsBackendConnected] = useState(true);
   const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   useEffect(() => {
     const checkMaximized = async () => {
-      const maximized = await getCurrentWindow().isMaximized();
-      setIsMaximized(maximized);
+      try {
+        const maximized = await getCurrentWindow().isMaximized();
+        setIsMaximized(maximized);
+      } catch (e) {}
     };
     
-    // Tauri has event listeners but we can also check on mount and interval
-    // For simplicity, we just check on mount. In a robust setup we'd listen to 'tauri://resize'
     checkMaximized();
 
-    const fetchSettings = () => {
-      fetch(`${API_URL}/settings/`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.ai_model) {
-            setModelName(data.ai_model);
-          } else {
-            setModelName("No model selected");
-          }
+    const checkBackend = () => {
+      fetch(`${API_URL}/ai/health`)
+        .then(res => {
+          if (res.ok) setIsBackendConnected(true);
+          else setIsBackendConnected(false);
         })
-        .catch(err => {
-          console.error("Failed to load settings:", err);
-          setModelName("Disconnected");
-        });
+        .catch(() => setIsBackendConnected(false));
     };
     
-    fetchSettings();
-    // Poll settings every few seconds in case it changes
-    const interval = setInterval(fetchSettings, 5000);
+    checkBackend();
+    const interval = setInterval(checkBackend, 5000);
     return () => clearInterval(interval);
   }, [API_URL]);
+
+  const activeModelDisplay = selectedModel || (models.length > 0 ? models[0].id : "No model selected");
 
   const handleMinimize = () => getCurrentWindow().minimize();
   const handleMaximize = async () => {
@@ -87,8 +84,8 @@ export function TitleBar() {
               <ChevronDown className="w-3 h-3 text-muted-foreground" />
             </span>
             <span className="text-muted-foreground font-medium text-[11px] px-2.5 py-0.5 rounded-full btn-3d-secondary flex items-center gap-2 pointer-events-auto shadow-sm">
-              <span className="max-w-[140px] truncate">{modelName}</span>
-              <span className={`w-2 h-2 rounded-full ${modelName === 'Disconnected' ? 'bg-destructive glow-red-3d' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'}`}></span>
+              <span className="max-w-[140px] truncate">{isBackendConnected ? activeModelDisplay : "Disconnected"}</span>
+              <span className={`w-2 h-2 rounded-full ${!isBackendConnected ? 'bg-destructive glow-red-3d' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'}`}></span>
             </span>
           </div>
         </div>

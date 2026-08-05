@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-blueviolet?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.4.0-blueviolet?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/platform-Linux-8A2BE2?style=flat-square&logo=linux&logoColor=white" alt="Platform" />
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=flat-square" alt="License" />
   <img src="https://img.shields.io/badge/status-Active%20Development-violet?style=flat-square" alt="Status" />
@@ -234,6 +234,8 @@ Detailed documentation lives in the [`docs/`](docs/) folder:
 |---|---|
 | [Vision](docs/Vision.md) | Project vision & core principles |
 | [PRD](docs/PRD.md) | Product Requirements Document |
+| [SRS](docs/SRS.md) | Software Requirements Specification (IEEE 830 / ISO 29148) |
+| [Problem Statement & Requirements](docs/Problem-Statement-and-Requirements.md) | Problem statement & Functional / Non-Functional Requirements |
 | [System Architecture](docs/System-Architecture.md) | Component design & data flow |
 | [Tech Stack](docs/Tech-stack.md) | Technology choices & rationale |
 | [API Documentation](docs/API-Documentation.md) | Backend REST API reference |

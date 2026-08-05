@@ -17,6 +17,45 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
+async function fetchDirectProviderModels(prov: ProviderType): Promise<ModelOption[]> {
+  try {
+    if (prov === "ollama") {
+      const res = await fetch("http://localhost:11434/api/tags");
+      if (res.ok) {
+        const data = await res.json();
+        return (data.models || []).map((m: any) => ({
+          id: m.name,
+          name: m.name,
+          provider: "ollama" as const,
+        }));
+      }
+    } else if (prov === "lmstudio") {
+      const res = await fetch("http://localhost:1234/v1/models");
+      if (res.ok) {
+        const data = await res.json();
+        return (data.data || []).map((m: any) => ({
+          id: m.id || m.name,
+          name: m.name || m.id,
+          provider: "lmstudio" as const,
+        }));
+      }
+    } else if (prov === "vllm") {
+      const res = await fetch("http://localhost:8080/v1/models");
+      if (res.ok) {
+        const data = await res.json();
+        return (data.data || []).map((m: any) => ({
+          id: m.id || m.name,
+          name: m.name || m.id,
+          provider: "vllm" as const,
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn(`Direct client-side fallback failed for ${prov}:`, e);
+  }
+  return [];
+}
+
 export function useModelSelection() {
   const [provider, setProviderState] = useState<ProviderType>(globalProvider);
   const [selectedModel, setSelectedModelState] = useState<string>(globalSelectedModel);
@@ -40,55 +79,42 @@ export function useModelSelection() {
 
   const fetchModels = async (prov = globalProvider) => {
     setIsLoading(true);
+    let list: ModelOption[] = [];
+
     try {
       const res = await fetch(`${API_URL}/ai/models?provider=${prov}`);
       if (res.ok) {
         const data = await res.json();
-        const list: ModelOption[] = (data || []).map((m: any) => ({
+        list = (data || []).map((m: any) => ({
           id: m.id || m.name,
           name: m.name || m.id,
           provider: prov,
         }));
-
-        // Fallback for Ollama if /ai/models returns empty list
-        if (list.length === 0 && prov === "ollama") {
-          const directRes = await fetch("http://localhost:11434/api/tags");
-          if (directRes.ok) {
-            const directData = await directRes.json();
-            const fallbackList: ModelOption[] = (directData.models || []).map((m: any) => ({
-              id: m.name,
-              name: m.name,
-              provider: "ollama" as const,
-            }));
-            globalModels = fallbackList;
-            if (fallbackList.length > 0 && (!globalSelectedModel || !fallbackList.some((m) => m.id === globalSelectedModel))) {
-              globalSelectedModel = fallbackList[0].id;
-              localStorage.setItem("void_selected_model", fallbackList[0].id);
-            }
-            return;
-          }
-        }
-
-        globalModels = list;
-        if (list.length > 0 && (!globalSelectedModel || !list.some((m) => m.id === globalSelectedModel))) {
-          globalSelectedModel = list[0].id;
-          localStorage.setItem("void_selected_model", list[0].id);
-        }
-      } else {
-        globalModels = [];
       }
     } catch (e) {
-      console.warn("Failed to fetch models for", prov, e);
-      globalModels = [];
-    } finally {
-      setIsLoading(false);
-      notify();
+      console.warn("Backend /ai/models fetch failed for", prov, e);
     }
+
+    // Direct client fallback if backend returned no models
+    if (list.length === 0) {
+      list = await fetchDirectProviderModels(prov);
+    }
+
+    globalModels = list;
+    if (list.length > 0) {
+      if (!globalSelectedModel || !list.some((m) => m.id === globalSelectedModel)) {
+        globalSelectedModel = list[0].id;
+        localStorage.setItem("void_selected_model", list[0].id);
+      }
+    }
+
+    setIsLoading(false);
+    notify();
   };
 
   useEffect(() => {
     fetchModels(globalProvider);
-  }, [provider]);
+  }, []);
 
   const setProvider = (p: ProviderType) => {
     globalProvider = p;

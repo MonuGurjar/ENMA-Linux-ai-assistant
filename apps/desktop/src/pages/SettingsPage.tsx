@@ -28,10 +28,20 @@ export function SettingsPage() {
       
     fetch(`${API_URL}/ai/models`)
       .then(res => res.json())
-      .then(data => {
-         setModels(data);
-         if (data.length > 0 && !settings.ai_model) {
-            setSettings(prev => ({ ...prev, ai_model: data[0].id }));
+      .then(async (data) => {
+         let list = data || [];
+         if (list.length === 0) {
+           try {
+             const direct = await fetch("http://localhost:11434/api/tags");
+             if (direct.ok) {
+               const directData = await direct.json();
+               list = (directData.models || []).map((m: any) => ({ id: m.name, name: m.name }));
+             }
+           } catch (e) {}
+         }
+         setModels(list);
+         if (list.length > 0 && !settings.ai_model) {
+            setSettings(prev => ({ ...prev, ai_model: list[0].id }));
          }
       })
       .catch(err => console.error("Failed to load models:", err));

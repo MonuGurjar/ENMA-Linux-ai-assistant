@@ -20,6 +20,8 @@ async def get_models(
     custom_url: Optional[str] = Query(None),
     session: Session = Depends(get_session)
 ):
+    models = []
+    
     if provider == "custom" and custom_url:
         base_url = custom_url.rstrip("/") + "/v1" if not custom_url.endswith("/v1") else custom_url
     elif provider in DEFAULT_PROVIDER_URLS:
@@ -28,17 +30,57 @@ async def get_models(
         setting = session.get(Setting, "ai_base_url")
         base_url = setting.value if setting else "http://localhost:11434/v1"
     
-    client = AsyncOpenAI(
-        base_url=base_url,
-        api_key="local-ai",
-        timeout=3.0
-    )
-    
+    # Method 1: AsyncOpenAI client
     try:
+        client = AsyncOpenAI(
+            base_url=base_url,
+            api_key="local-ai",
+            timeout=3.0
+        )
         response = await client.models.list()
-        return [{"id": m.id, "name": m.id} for m in response.data]
-    except Exception as e:
-        return []
+        for m in response.data:
+            models.append({"id": m.id, "name": m.id})
+    except Exception:
+        pass
+
+    # Method 2: Fallback direct HTTP requests if OpenAI client returned no models
+    if not models:
+        async with httpx.AsyncClient(timeout=3.0) as http_client:
+            if provider == "ollama":
+                try:
+                    res = await http_client.get("http://localhost:11434/api/tags")
+                    if res.status_code == 200:
+                        data = res.json()
+                        for m in data.get("models", []):
+                            m_name = m.get("name")
+                            if m_name:
+                                models.append({"id": m_name, "name": m_name})
+                except Exception:
+                    pass
+            elif provider == "lmstudio":
+                try:
+                    res = await http_client.get("http://localhost:1234/v1/models")
+                    if res.status_code == 200:
+                        data = res.json()
+                        for m in data.get("data", []):
+                            m_id = m.get("id")
+                            if m_id:
+                                models.append({"id": m_id, "name": m_id})
+                except Exception:
+                    pass
+            elif provider == "vllm":
+                try:
+                    res = await http_client.get("http://localhost:8080/v1/models")
+                    if res.status_code == 200:
+                        data = res.json()
+                        for m in data.get("data", []):
+                            m_id = m.get("id")
+                            if m_id:
+                                models.append({"id": m_id, "name": m_id})
+                except Exception:
+                    pass
+                    
+    return models
 
 @router.get("/health")
 async def check_services_health():

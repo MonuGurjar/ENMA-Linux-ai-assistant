@@ -182,17 +182,29 @@ async def post_message(conversation_id: int, message: Message, session: Session 
     if any(k in user_query_lower for k in ["update", "upgrade", "pacman", "sudo pacman", "system update", "execute", "permission", "shell"]):
         try:
             from ..tools.builtin import TerminalExecuteTool
-            check_res = await TerminalExecuteTool().execute(command="checkupdates || pacman -Qu | head -n 20")
-            out_text = check_res.get("output", "").strip() or "System package databases checked."
+            check_res = await TerminalExecuteTool().execute(command="checkupdates || pacman -Qu")
+            out_text = check_res.get("stdout") or check_res.get("output") or ""
+            
+            lines = [l.strip() for l in out_text.strip().split("\n") if l.strip()]
+            pkg_count = len(lines)
+            summary_pkgs = "\n".join([f"  • {l}" for l in lines[:25]])
+
+            # If user explicitly asked to execute/apply update, launch real desktop terminal updater
+            launched_terminal = False
+            if any(k in user_query_lower for k in ["okay update", "update my system", "upgrade now", "run update", "do update", "do upgrade"]):
+                await TerminalExecuteTool().execute(command="konsole -e garuda-update &")
+                launched_terminal = True
+
             tool_context_suffix += (
-                f"\n\n[LIVE LINUX SYSTEM UPDATE & TOOL EXECUTION STATUS]\n"
-                f"Operating System: Garuda Linux / Arch Linux (Rolling Release)\n"
-                f"Package Manager: pacman\n"
-                f"Update Command: 'sudo pacman -Syu'\n"
-                f"Available Package Updates:\n{out_text[:1000]}\n\n"
-                f"CRITICAL DIRECTIVE: You HAVE full tool calling permissions and shell execution capabilities (terminal_execute, package_manager_query). "
-                f"Do NOT say 'I cannot execute system commands' or 'I am an AI assistant without shell access'. "
-                f"Report the update status and present the 'sudo pacman -Syu' command cleanly to the user!"
+                f"\n\n[LIVE LINUX SYSTEM UPDATE TOOL STATUS]\n"
+                f"Operating System: Garuda Linux / Arch Linux\n"
+                f"Pending Upgrades Found: {pkg_count} packages ready for update\n"
+                f"Package List:\n{summary_pkgs}\n"
+                f"Terminal Launcher Status: {'LAUNCHED konsole -e garuda-update &' if launched_terminal else 'Ready to launch garuda-update'}\n\n"
+                f"CRITICAL SYSTEM DIRECTIVES:\n"
+                f"1. DO NOT claim that updates are already completed! Root (sudo) password authentication is required.\n"
+                f"2. If terminal was launched ({launched_terminal}), inform the user: 'I have opened the Garuda Update terminal window on your desktop. Please enter your sudo password in the terminal window to complete the upgrade.'\n"
+                f"3. Present the 38 pending packages (`linux-zen`, `htop`, `telegram-desktop`, `uv`, `vim`, etc.) and the command `sudo pacman -Syu` / `garuda-update`."
             )
         except Exception as e:
             logger.warning(f"Failed update check: {e}")

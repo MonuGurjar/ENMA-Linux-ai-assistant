@@ -2,21 +2,13 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Cpu,
+  Folder,
+  Package,
   Activity,
-  Terminal,
   Globe,
-  FolderTree,
-  Sliders,
-  BarChart3,
-  Brain,
-  Quote,
-  Sparkles,
-  Server,
-  Database,
-  ShieldCheck,
+  CheckSquare,
+  Plus,
   PanelRightClose,
-  Info,
-  Layers,
 } from "lucide-react";
 
 interface RightSidebarProps {
@@ -24,114 +16,90 @@ interface RightSidebarProps {
   width?: number;
   onToggle?: () => void;
   onResizeStart?: (e: React.MouseEvent) => void;
+  onSelectTool?: (toolId: string) => void;
 }
 
-interface ServiceItem {
-  id: string;
-  name: string;
-  icon: any;
-  status: "running" | "stopped";
-  instruction: string;
+interface SystemTelemetry {
+  os: string;
+  kernel: string;
+  uptime: string;
+  memory: { used_gb: number; total_gb: number; percent: number };
+  cpu: { percent: number };
+  storage: { used_gb: number; total_gb: number; percent: number };
 }
 
-export function RightSidebar({ open = true, width = 300, onToggle, onResizeStart }: RightSidebarProps) {
-  const [cpu, setCpu] = useState(18);
-  const [ram, setRam] = useState(42);
-  const [gpu, setGpu] = useState(23);
+export function RightSidebar({
+  open = true,
+  width = 300,
+  onToggle,
+  onResizeStart,
+  onSelectTool,
+}: RightSidebarProps) {
+  const [telemetry, setTelemetry] = useState<SystemTelemetry>({
+    os: "Garuda Linux",
+    kernel: "6.9.7-zen1-1-zen",
+    uptime: "2h 34m",
+    memory: { used_gb: 5.2, total_gb: 15.4, percent: 34 },
+    cpu: { percent: 12 },
+    storage: { used_gb: 112, total_gb: 512, percent: 21 },
+  });
 
-  const [activeInfoId, setActiveInfoId] = useState<string | null>(null);
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-  const [services, setServices] = useState<ServiceItem[]>([
-    {
-      id: "backend",
-      name: "Backend API",
-      icon: Server,
-      status: "running",
-      instruction: "Run: cd apps/backend && uv run uvicorn main:app --reload --port 8000",
-    },
-    {
-      id: "ollama",
-      name: "Ollama Engine",
-      icon: Cpu,
-      status: "running",
-      instruction: "Run command: ollama serve (Serves on http://localhost:11434)",
-    },
-    {
-      id: "lmstudio",
-      name: "LM Studio",
-      icon: Activity,
-      status: "stopped",
-      instruction: "Launch LM Studio app -> Go to Developer tab -> Click 'Start Local Server' (http://localhost:1234)",
-    },
-    {
-      id: "vllm",
-      name: "vLLM Engine",
-      icon: Layers,
-      status: "stopped",
-      instruction: "Run command: vllm serve <model_name> --port 8080",
-    },
-    {
-      id: "sqlite",
-      name: "SQLite Database",
-      icon: Database,
-      status: "running",
-      instruction: "Managed automatically by backend database session",
-    },
-  ]);
-
-  // Live jitter effect for system monitor
+  // Fetch real system telemetry from backend
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCpu(Math.floor(14 + Math.random() * 12));
-      setRam(Math.floor(40 + Math.random() * 5));
-      setGpu(Math.floor(20 + Math.random() * 8));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Poll service health
-  useEffect(() => {
-    const checkHealth = async () => {
+    const fetchStatus = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/ai/health");
+        const res = await fetch(`${API_URL}/ai/system/status`);
         if (res.ok) {
           const data = await res.json();
-          setServices((prev) =>
-            prev.map((s) => ({
-              ...s,
-              status: data[s.id] === "running" ? "running" : "stopped",
-            }))
-          );
+          if (data.os) setTelemetry(data);
         }
-      } catch (e) {
-        // API offline fallback checks
-        try {
-          const ollamaRes = await fetch("http://localhost:11434/api/tags");
-          setServices((prev) =>
-            prev.map((s) =>
-              s.id === "ollama" ? { ...s, status: ollamaRes.ok ? "running" : "stopped" } : s
-            )
-          );
-        } catch {
-          setServices((prev) =>
-            prev.map((s) => (s.id === "ollama" ? { ...s, status: "stopped" } : s))
-          );
-        }
-      }
+      } catch (e) {}
     };
 
-    checkHealth();
-    const interval = setInterval(checkHealth, 5000);
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [API_URL]);
 
-  const capabilities = [
-    { title: "Code Execution", icon: Terminal, color: "text-blue-400" },
-    { title: "Web Search", icon: Globe, color: "text-cyan-400" },
-    { title: "File Operations", icon: FolderTree, color: "text-sky-400" },
-    { title: "System Control", icon: Sliders, color: "text-blue-400" },
-    { title: "Data Analysis", icon: BarChart3, color: "text-indigo-400" },
-    { title: "AI Reasoning", icon: Brain, color: "text-cyan-400" },
+  const voidTools = [
+    {
+      id: "system_info",
+      title: "System Info",
+      description: "Get system information and status",
+      icon: Cpu,
+    },
+    {
+      id: "file_manager",
+      title: "File Manager",
+      description: "Browse and manage your files",
+      icon: Folder,
+    },
+    {
+      id: "package_manager",
+      title: "Package Manager",
+      description: "Install, update and remove packages",
+      icon: Package,
+    },
+    {
+      id: "process_monitor",
+      title: "Process Monitor",
+      description: "Monitor system processes in real-time",
+      icon: Activity,
+    },
+    {
+      id: "web_search",
+      title: "Web Search",
+      description: "Search the web using DuckDuckGo",
+      icon: Globe,
+    },
+    {
+      id: "note_taker",
+      title: "Note Taker",
+      description: "Create and manage your notes",
+      icon: CheckSquare,
+    },
   ];
 
   return (
@@ -147,223 +115,156 @@ export function RightSidebar({ open = true, width = 300, onToggle, onResizeStart
         damping: 36,
         mass: 0.8,
       }}
-      className="shrink-0 h-full rounded-2xl border border-white/15 sidebar-solid-panel shadow-2xl overflow-hidden select-none relative z-20 will-change-[width,opacity]"
+      className="shrink-0 h-full rounded-2xl border border-emerald-500/20 bg-[#0B0F12] shadow-2xl overflow-hidden select-none relative z-20"
     >
       <div
         style={{ width: `${width}px` }}
-        className="h-full flex flex-col justify-between overflow-y-auto no-scrollbar p-4 space-y-5"
+        className="h-full flex flex-col justify-between p-3.5 space-y-4 overflow-y-auto no-scrollbar"
       >
-      {/* Left Edge Resize Handle */}
-      {open && onResizeStart && (
-        <div
-          onMouseDown={onResizeStart}
-          className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-cyan-400/60 active:bg-cyan-400 transition-colors z-30 group flex items-center justify-center"
-          title="Drag to resize right sidebar"
-        >
-          <div className="w-0.5 h-8 bg-white/30 rounded-full group-hover:bg-cyan-200 group-hover:scale-y-125 transition-all" />
-        </div>
-      )}
-
-      {/* 1. SYSTEM MONITOR */}
-      <div className="card-3d-object p-3.5 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Cpu className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-xs font-bold tracking-wider uppercase text-white">
-              System Monitor
-            </span>
+        {/* Left Edge Resize Handle */}
+        {open && onResizeStart && (
+          <div
+            onMouseDown={onResizeStart}
+            className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-emerald-400/50 transition-colors z-30 flex items-center justify-center"
+            title="Drag to resize sidebar"
+          >
+            <div className="w-0.5 h-8 bg-white/20 rounded-full" />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-              <span className="text-[10px] font-bold text-emerald-400 uppercase">LIVE</span>
-            </div>
-            {onToggle && (
+        )}
+
+        {/* 1. TOP PANEL: VOID TOOLS */}
+        <div className="p-3.5 rounded-2xl bg-[#12181F] border border-emerald-500/20 space-y-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold tracking-wider uppercase text-white">
+              VOID Tools
+            </span>
+            <div className="flex items-center gap-1.5">
               <button
-                onClick={onToggle}
-                className="p-1 rounded-lg text-muted-foreground hover:text-white hover:bg-white/10 transition-all active:scale-95"
-                title="Collapse Right Sidebar"
+                className="p-1 rounded-lg text-emerald-400 hover:bg-emerald-950/60 transition-all"
+                title="Add Custom Tool"
               >
-                <PanelRightClose className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* CPU Bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] font-medium">
-            <span className="text-muted-foreground">CPU</span>
-            <span className="text-blue-300 font-mono font-bold">{cpu}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden p-0.5 inset-3d">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(37,99,235,0.6)]"
-              style={{ width: `${cpu}%` }}
-            />
-          </div>
-        </div>
-
-        {/* RAM Bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] font-medium">
-            <span className="text-muted-foreground">RAM</span>
-            <span className="text-blue-300 font-mono font-bold">{ram}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden p-0.5 inset-3d">
-            <div
-              className="h-full bg-gradient-to-r from-blue-600 to-sky-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(37,99,235,0.6)]"
-              style={{ width: `${ram}%` }}
-            />
-          </div>
-        </div>
-
-        {/* GPU Bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] font-medium">
-            <span className="text-muted-foreground">GPU</span>
-            <span className="text-blue-300 font-mono font-bold">{gpu}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden p-0.5 inset-3d">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-500 to-blue-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]"
-              style={{ width: `${gpu}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 2. THOUGHT STREAM */}
-      <div className="card-3d-object p-3.5 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-            <span className="text-xs font-bold tracking-wider uppercase text-white">
-              Thought Stream
-            </span>
-          </div>
-          <span className="text-[9px] font-semibold text-cyan-400 uppercase tracking-widest animate-pulse">
-            ANALYZING...
-          </span>
-        </div>
-
-        <div className="space-y-1.5 text-[11px] font-mono text-muted-foreground/90 bg-black/40 p-2.5 rounded-xl border border-white/5 inset-3d">
-          <p className="flex items-center gap-1.5 text-blue-300">
-            <span className="text-blue-500">&gt;</span> Understanding request...
-          </p>
-          <p className="flex items-center gap-1.5">
-            <span className="text-blue-500">&gt;</span> Scanning local knowledge...
-          </p>
-          <p className="flex items-center gap-1.5">
-            <span className="text-blue-500">&gt;</span> Accessing toolset...
-          </p>
-          <p className="flex items-center gap-1.5">
-            <span className="text-blue-500">&gt;</span> Compiling response...
-          </p>
-          <div className="flex items-center gap-1 pt-1 justify-center">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" />
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.2s]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.4s]" />
-          </div>
-        </div>
-      </div>
-
-      {/* 3. CAPABILITIES */}
-      <div className="card-3d-object p-3.5 space-y-2.5">
-        <div className="flex items-center gap-2 mb-1">
-          <Activity className="w-3.5 h-3.5 text-blue-400" />
-          <span className="text-xs font-bold tracking-wider uppercase text-white">
-            Capabilities
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          {capabilities.map((cap, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5 hover:border-blue-500/30 transition-all group cursor-default"
-            >
-              <cap.icon className={`w-3.5 h-3.5 ${cap.color} group-hover:scale-110 transition-transform`} />
-              <span className="text-[11px] font-medium text-foreground/90 truncate">
-                {cap.title}
-              </span>
+              {onToggle && (
+                <button
+                  onClick={onToggle}
+                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                  title="Collapse Panel"
+                >
+                  <PanelRightClose className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 4. SERVICES LOG STATUS */}
-      <div className="card-3d-object p-3.5 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-xs font-bold tracking-wider uppercase text-white">
-              Services Log
-            </span>
           </div>
-          <span className="text-[10px] text-muted-foreground font-medium">Private & Offline</span>
-        </div>
 
-        <div className="grid grid-cols-1 gap-1.5 text-[11px] font-medium">
-          {services.map((s) => {
-            const IconComp = s.icon;
-            const isRunning = s.status === "running";
-            const showInfo = activeInfoId === s.id;
-
-            return (
-              <div key={s.id} className="flex flex-col gap-1 rounded-xl bg-white/5 border border-white/5 p-2 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground flex items-center gap-1.5">
-                    <IconComp className="w-3.5 h-3.5 text-blue-300" /> {s.name}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {isRunning ? (
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Running
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-[10px] font-semibold text-neutral-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" />
-                        Stopped
-                        <button
-                          onClick={() => setActiveInfoId(showInfo ? null : s.id)}
-                          className="ml-0.5 p-0.5 rounded-md hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-colors"
-                          title="Click to see how to run this service"
-                        >
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
+          <div className="space-y-2">
+            {voidTools.map((tool) => {
+              const IconComp = tool.icon;
+              return (
+                <div
+                  key={tool.id}
+                  onClick={() => onSelectTool && onSelectTool(tool.id)}
+                  className="flex items-start gap-3 p-2.5 rounded-xl bg-[#0B0F12] border border-white/5 hover:border-emerald-500/40 hover:bg-emerald-950/20 transition-all cursor-pointer group"
+                >
+                  <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 group-hover:scale-110 transition-transform">
+                    <IconComp className="w-4 h-4 drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
+                      {tool.title}
+                    </div>
+                    <div className="text-[10px] text-gray-400 truncate leading-tight">
+                      {tool.description}
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        </div>
 
-                {/* Info Card Popover when (i) icon is clicked for stopped services */}
-                {(!isRunning || showInfo) && showInfo && (
-                  <div className="mt-1 p-2 rounded-lg bg-black/60 border border-cyan-500/30 text-[10px] text-cyan-200 space-y-1 font-mono inset-3d animate-in fade-in zoom-in-95 duration-200">
-                    <div className="font-bold text-cyan-400 flex items-center gap-1">
-                      <Info className="w-3 h-3" /> How to start {s.name}:
-                    </div>
-                    <p className="text-white/90 break-all">{s.instruction}</p>
-                  </div>
-                )}
+        {/* 2. BOTTOM PANEL: SYSTEM STATUS (REAL LIVE TELEMETRY) */}
+        <div className="p-3.5 rounded-2xl bg-[#12181F] border border-emerald-500/20 space-y-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold tracking-wider uppercase text-white">
+              System Status
+            </span>
+            <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              LIVE
+            </span>
+          </div>
+
+          <div className="space-y-2 text-xs font-mono">
+            {/* OS */}
+            <div className="flex justify-between items-center text-gray-300">
+              <span className="text-gray-400">OS</span>
+              <span className="text-white font-bold">{telemetry.os}</span>
+            </div>
+
+            {/* Kernel */}
+            <div className="flex justify-between items-center text-gray-300">
+              <span className="text-gray-400">Kernel</span>
+              <span className="text-emerald-400 text-[11px] truncate max-w-[160px]">
+                {telemetry.kernel}
+              </span>
+            </div>
+
+            {/* Uptime */}
+            <div className="flex justify-between items-center text-gray-300">
+              <span className="text-gray-400">Uptime</span>
+              <span className="text-white">{telemetry.uptime}</span>
+            </div>
+
+            {/* Memory Bar */}
+            <div className="space-y-1 pt-1">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-400">Memory</span>
+                <span className="text-emerald-400 font-bold">
+                  {telemetry.memory.used_gb} GB / {telemetry.memory.total_gb} GB ({telemetry.memory.percent}%)
+                </span>
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                  style={{ width: `${Math.min(telemetry.memory.percent, 100)}%` }}
+                />
+              </div>
+            </div>
 
-      {/* 5. VOID PHILOSOPHY QUOTE CARD */}
-      <div className="card-3d-object p-3.5 space-y-2 bg-gradient-to-br from-blue-950/40 via-blue-900/20 to-black/60 border-blue-500/20">
-        <Quote className="w-4 h-4 text-blue-400 opacity-60" />
-        <p className="text-[11px] italic leading-relaxed text-blue-200/90 font-serif">
-          &ldquo;In the vast void of information, I am the singularity that answers.&rdquo;
-        </p>
-        <div className="text-right text-[10px] font-bold text-blue-400 tracking-wider">
-          &mdash; VOID
+            {/* CPU Bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-400">CPU</span>
+                <span className="text-emerald-400 font-bold">{telemetry.cpu.percent}%</span>
+              </div>
+              <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                  style={{ width: `${Math.min(telemetry.cpu.percent, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Storage Bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-400">Storage</span>
+                <span className="text-emerald-400 font-bold">
+                  {telemetry.storage.used_gb} GB / {telemetry.storage.total_gb} GB ({telemetry.storage.percent}%)
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                  style={{ width: `${Math.min(telemetry.storage.percent, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
       </div>
     </motion.aside>
   );
 }
+

@@ -439,3 +439,34 @@
   transform-origin: center bottom;
   perspective: 400px;
 }
+
+/* Emerald Cyber & Neon Theme Tokens for VOID */
+.emerald-card {
+  background: linear-gradient(145deg, rgba(13, 23, 20, 0.85), rgba(7, 13, 11, 0.95));
+  border-radius: 1rem;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.8), 0 0 15px rgba(16, 185, 129, 0.05);
+  transition: all 0.25s ease;
+}
+
+.emerald-card:hover {
+  border-color: rgba(52, 211, 153, 0.4);
+  box-shadow: 0 14px 40px -5px rgba(0, 0, 0, 0.9), 0 0 20px rgba(16, 185, 129, 0.15);
+  transform: translateY(-2px);
+}
+
+.emerald-active-pill {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.35) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  color: #34d399 !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.3);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.4), inset 0 0 8px rgba(52, 211, 153, 0.2);
+}
+
+.text-emerald-glow {
+  color: #34d399;
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+}

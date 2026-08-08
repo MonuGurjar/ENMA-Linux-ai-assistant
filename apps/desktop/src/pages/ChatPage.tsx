@@ -262,16 +262,26 @@ export function ChatPage() {
     }
   };
 
+  const handleSelectAction = (actionId: string, promptText?: string) => {
+    if (promptText) {
+      setInput(promptText);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full w-full relative min-h-0">
+    <div className="flex flex-col h-full w-full relative min-h-0 bg-[#0B0F12]">
       {/* Top Header Row — Model Selector pinned to the right */}
-      <div className="flex items-center justify-end px-4 md:px-8 pt-2 pb-1 shrink-0">
+      <div className="flex items-center justify-between px-4 md:px-8 pt-2 pb-1 shrink-0 border-b border-emerald-500/10">
+        <div className="text-xs font-mono text-emerald-400/80 flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>LOCAL SESSION</span>
+        </div>
         <HorizontalModelSelector />
       </div>
 
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto">
-          <WelcomeGrid />
+          <WelcomeGrid onSelectAction={handleSelectAction} />
         </div>
       ) : (
         <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-4 space-y-6 min-h-0 no-scrollbar">
@@ -287,19 +297,19 @@ export function ChatPage() {
                   <div
                     className={`max-w-[85%] rounded-2xl px-5 py-3.5 shadow-xl transition-all ${
                       msg.role === "user"
-                        ? "btn-3d-primary text-white font-medium rounded-tr-xs"
-                        : "card-3d-object text-foreground rounded-tl-xs"
+                        ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-black font-medium rounded-tr-xs shadow-[0_0_16px_rgba(16,185,129,0.3)]"
+                        : "bg-[#12181F] text-foreground rounded-tl-xs border border-emerald-500/20"
                     }`}
                   >
                     {msg.role === "user" ? (
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                      <div className="whitespace-pre-wrap font-semibold text-black">{msg.content}</div>
                     ) : (
                       <div className="prose prose-sm dark:prose-invert max-w-none min-h-6">
                         {msg.content === "" ? (
                           <div className="flex items-center gap-1.5 h-6">
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce glow-blue-3d" />
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.2s] glow-blue-3d" />
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.4s] glow-blue-3d" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.2s] shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s] shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
                           </div>
                         ) : (
                           <>
@@ -319,27 +329,18 @@ export function ChatPage() {
                                   code({ node, className, children, ...props }) {
                                     const match = /language-(\w+)/.exec(className || "");
                                     return match ? (
-                                      <div className="relative group/code rounded-xl overflow-hidden my-4 inset-3d border border-white/10 shadow-inner">
-                                        <div className="flex items-center justify-between px-3.5 py-2 bg-white/5 text-xs text-muted-foreground border-b border-white/10 font-mono">
-                                          <span className="font-semibold text-cyan-400">{match[1]}</span>
-                                          <button
-                                            onClick={() =>
-                                              navigator.clipboard.writeText(String(children).replace(/\n$/, ""))
-                                            }
-                                            className="hover:text-foreground transition-colors btn-3d-secondary px-2 py-0.5 rounded text-[10px]"
-                                          >
-                                            Copy Code
-                                          </button>
+                                      <div className="relative group/code rounded-xl overflow-hidden my-4 border border-emerald-500/30 bg-[#0B0F12] shadow-inner">
+                                        <div className="flex items-center justify-between px-3.5 py-2 bg-emerald-950/40 text-xs text-emerald-400 border-b border-emerald-500/20 font-mono">
+                                          <span>{match[1]}</span>
                                         </div>
-                                        <code className={className} {...props}>
-                                          {children}
-                                        </code>
+                                        <pre className="p-4 overflow-x-auto text-xs font-mono text-gray-200 leading-relaxed">
+                                          <code className={className} {...props}>
+                                            {children}
+                                          </code>
+                                        </pre>
                                       </div>
                                     ) : (
-                                      <code
-                                        className={`${className} bg-white/10 rounded-md px-1.5 py-0.5 text-cyan-400 font-mono text-xs`}
-                                        {...props}
-                                      >
+                                      <code className="bg-emerald-950/60 text-emerald-300 font-mono text-xs px-1.5 py-0.5 rounded border border-emerald-500/30" {...props}>
                                         {children}
                                       </code>
                                     );
@@ -356,7 +357,7 @@ export function ChatPage() {
                     {msg.created_at && (
                       <div
                         className={`text-[10px] text-muted-foreground/80 mt-2 ${
-                          msg.role === "user" ? "text-right text-white/80" : "text-left"
+                          msg.role === "user" ? "text-right text-black/60" : "text-left"
                         }`}
                       >
                         {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -371,9 +372,9 @@ export function ChatPage() {
               <div className="flex items-start">
                 <div className="bg-transparent text-foreground max-w-[85%] rounded-2xl px-5 py-3.5">
                   <div className="flex items-center gap-1.5 h-6">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce glow-blue-3d" />
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce [animation-delay:0.2s] glow-blue-3d" />
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce [animation-delay:0.4s] glow-blue-3d" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.2s]" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.4s]" />
                   </div>
                 </div>
               </div>
@@ -394,57 +395,47 @@ export function ChatPage() {
         </div>
       )}
 
-      {/* Slim Single-Line Chat Input Bar */}
-      <div className="px-4 md:px-8 pb-3 pt-1 shrink-0">
+      {/* Screenshot-Matching Chat Input Bar */}
+      <div className="px-4 md:px-8 pb-4 pt-2 shrink-0">
         <div className="max-w-4xl mx-auto relative">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSend();
             }}
-            className="flex items-center gap-2.5 w-full glass-panel-glossy shadow-2xl rounded-2xl p-2 px-3 border border-white/15 focus-within:border-blue-500/50 transition-all"
+            className="flex items-center gap-3 w-full bg-[#12181F] shadow-2xl rounded-2xl p-2 px-4 border border-emerald-500/30 focus-within:border-emerald-400/80 transition-all"
           >
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                className="p-2 text-muted-foreground hover:text-white btn-3d-secondary rounded-xl transition-all active:scale-95"
-                title="Add attachment or tool"
-              >
-                <Plus className="w-4 h-4 text-cyan-400" />
-              </button>
-              <button
-                type="button"
-                className="p-2 text-muted-foreground hover:text-white btn-3d-secondary rounded-xl transition-all active:scale-95 hidden sm:flex"
-                title="Attach file"
-              >
-                <Paperclip className="w-4 h-4" />
-              </button>
-            </div>
-
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask VOID anything..."
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none px-1 py-1 font-medium"
+              placeholder="Ask anything or give a command..."
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none px-2 py-1.5 font-medium"
             />
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="p-2 text-muted-foreground hover:text-white btn-3d-secondary rounded-xl transition-all active:scale-95 hidden sm:flex"
+                className="p-2 text-gray-400 hover:text-emerald-400 hover:bg-white/5 rounded-xl transition-all active:scale-95"
+                title="Attach file"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="p-2 text-gray-400 hover:text-emerald-400 hover:bg-white/5 rounded-xl transition-all active:scale-95 hidden sm:flex"
                 title="Voice input"
               >
-                <Mic className="w-4 h-4 text-cyan-400" />
+                <Mic className="w-4 h-4" />
               </button>
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="btn-3d-primary p-2.5 rounded-xl text-white disabled:opacity-40 disabled:hover:transform-none transition-all active:scale-95 shadow-md flex items-center justify-center"
-                title="Send message"
+                className="bg-emerald-500 hover:bg-emerald-400 text-black p-2.5 rounded-xl disabled:opacity-40 transition-all active:scale-95 shadow-[0_0_14px_rgba(16,185,129,0.5)] flex items-center justify-center font-bold cursor-pointer"
+                title="Send command"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-4 h-4 text-black" />
               </button>
             </div>
           </form>

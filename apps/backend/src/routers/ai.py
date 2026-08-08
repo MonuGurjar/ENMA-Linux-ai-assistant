@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 from openai import AsyncOpenAI
+import os
 import httpx
 from typing import Optional
 from ..db import get_session
@@ -119,3 +120,74 @@ async def check_services_health():
             pass
             
         return results
+
+@router.get("/system/status")
+async def get_system_status():
+    """Returns real live hardware and OS telemetry data."""
+    try:
+        import platform
+        import time
+        import psutil
+
+        # OS Name
+        os_name = "Linux"
+        if os.path.exists("/etc/os-release"):
+            with open("/etc/os-release") as f:
+                for line in f:
+                    if line.startswith("PRETTY_NAME="):
+                        os_name = line.split("=")[1].strip().strip('"')
+                        break
+        
+        kernel = platform.release()
+        
+        # Uptime
+        boot_time = psutil.boot_time()
+        uptime_sec = int(time.time() - boot_time)
+        hours = uptime_sec // 3600
+        mins = (uptime_sec % 3600) // 60
+        uptime_str = f"{hours}h {mins}m"
+        
+        # Memory
+        mem = psutil.virtual_memory()
+        mem_used_gb = round(mem.used / (1024 ** 3), 1)
+        mem_total_gb = round(mem.total / (1024 ** 3), 1)
+        mem_percent = round(mem.percent, 1)
+
+        # CPU
+        cpu_percent = round(psutil.cpu_percent(interval=None), 1)
+
+        # Storage
+        disk = psutil.disk_usage('/')
+        disk_used_gb = round(disk.used / (1024 ** 3), 1)
+        disk_total_gb = round(disk.total / (1024 ** 3), 1)
+        disk_percent = round(disk.percent, 1)
+
+        return {
+            "os": os_name,
+            "kernel": kernel,
+            "uptime": uptime_str,
+            "memory": {
+                "used_gb": mem_used_gb,
+                "total_gb": mem_total_gb,
+                "percent": mem_percent
+            },
+            "cpu": {
+                "percent": cpu_percent
+            },
+            "storage": {
+                "used_gb": disk_used_gb,
+                "total_gb": disk_total_gb,
+                "percent": disk_percent
+            }
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "os": "Linux",
+            "kernel": platform.release(),
+            "uptime": "N/A",
+            "memory": {"used_gb": 0, "total_gb": 16, "percent": 0},
+            "cpu": {"percent": 0},
+            "storage": {"used_gb": 0, "total_gb": 512, "percent": 0}
+        }
+

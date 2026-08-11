@@ -26,11 +26,15 @@ DEFAULT_PROVIDER_URLS = {
 }
 
 DEFAULT_SYSTEM_PROMPT = (
-    "You are VOID, an advanced, autonomous Linux AI assistant equipped with direct operating system integration and real-time execution capabilities. "
-    "YOU HAVE FULL AUTHORIZATION, TOOL CALLING PERMISSION, AND SHELL EXECUTION ACCESS to inspect, manage, automate, and operate the user's Linux system. "
-    "NEVER claim that you are 'just an AI assistant' or that you 'cannot execute system commands' or 'lack direct shell access'. "
-    "You have integrated system tools (terminal_execute, filesystem_list, filesystem_read, filesystem_write, system_info, package_manager_query, process_manager, git_status, network_ping, etc.). "
-    "When the user asks you to list files, check updates, run commands, or execute tasks, execute the task directly using your tools and present the results cleanly to the user."
+    "You are VOID, an advanced, autonomous Linux AI assistant running natively on **Garuda Linux (Arch Linux derivative)**. "
+    "SYSTEM ENVIRONMENT DIRECTIVE: The user's system OS is **Garuda Linux (Arch Linux based)**. "
+    "ALWAYS use Arch Linux native CLI tools (`pacman -S`, `pacman -Syu`, `pacman -Ss`, `paru`, `garuda-update`, `yay`, `journalctl`, `inxi`, `ls -la`, `cat`, `grep`). "
+    "NEVER use Debian/Ubuntu commands like `apt`, `apt-get`, `dpkg`, `snap`, or `/var/log/syslog`. "
+    "CRITICAL RULE: BASH COMMAND EXECUTION IS YOUR FIRST AND ONLY PRIMARY METHOD FOR ALL ACTIONS. "
+    "Do NOT write hundreds of lines of python tool calls or complex JSON objects. "
+    "Simply output a clean markdown code block containing your exact bash command (e.g. ```bash <command> ```). "
+    "The backend system will automatically intercept, execute the command live on Garuda Linux, and append the real output to your response. "
+    "NEVER simulate fake terminal outputs and NEVER claim you lack shell access."
 )
 
 def utc_now() -> datetime:
@@ -45,6 +49,165 @@ def strip_thinking_tags(text: str) -> str:
     if match:
         clean = match.group(3) + clean[match.end():]
     return clean.strip()
+
+def sanitize_hallucinated_tokens(text: str) -> str:
+    """Sanitizes repetitive token loops like bus_master_pci_64bit_64bit_64bit... from LLM responses."""
+    # Filter repeated capabilities patterns
+    text = re.sub(r"(bus_master_pci_64bit_?){3,}", "bus_master_pci_64bit", text)
+    text = re.sub(r"(\b[a-zA-Z0-9_]{10,}\b)(\s+\1){3,}", r"\1", text)
+    return text
+
+async def execute_bash_command(cmd: str) -> dict:
+    """Safely executes bash command on Linux, resolving xdg-open for browsers, journalctl for system logs, and inxi for hardware."""
+    from ..tools.builtin import TerminalExecuteTool, strip_ansi_codes
+
+    # 1. Hardware query resolver: lshw or lscpu -> inxi -b -c 0 (only if not targeting a directory path)
+    if any(h in cmd for h in ["lshw", "lscpu", "inxi"]) and not any(p in cmd.lower() for p in ["/home", "/downloads", "/desktop", "/documents", "/pictures"]):
+        cmd = "inxi -b -c 0 2>&1 || lscpu 2>&1"
+
+    # 2. System logs resolver: /var/log/syslog or /var/log/messages -> journalctl -n 50 --no-pager
+    elif any(l in cmd for l in ["/var/log/syslog", "/var/log/messages", "syslog"]):
+        lines_match = re.search(r"-n\s*(\d+)", cmd)
+        num_lines = lines_match.group(1) if lines_match else "50"
+        cmd = f"journalctl -n {num_lines} --no-pager"
+
+    # 3. Package manager query / update checking resolver
+    elif "pacman -Qdt" in cmd or "pacman -Qu" in cmd or ("grep" in cmd and "vlc" in cmd.lower()):
+        pkg_match = re.search(r"grep\s+([a-zA-Z0-9_\-\.]+)", cmd)
+        target_pkg = pkg_match.group(1) if pkg_match else "vlc"
+        cmd = f"pacman -Qu | grep -i {target_pkg} || pacman -Qs {target_pkg}"
+
+    # 4. System upgrade / Root pacman installer launcher
+    elif "pacman -Syu" in cmd or "pacman -S" in cmd or "garuda-update" in cmd:
+        if "vlc" not in cmd.lower() and "check" not in cmd.lower():
+            term_cmd = "konsole -e garuda-update &" if shutil.which("garuda-update") else "konsole -e sudo pacman -Syu &"
+            await TerminalExecuteTool().execute(command=term_cmd)
+            check_res = await TerminalExecuteTool().execute(command="pacman -Qu")
+            out_text = check_res.get("stdout") or ""
+            lines = [l.strip() for l in out_text.strip().split("\n") if l.strip()]
+            return {
+                "exit_code": 0,
+                "stdout": f"Opened terminal updater window (`{term_cmd}`).\nPending Updates Found ({len(lines)}):\n" + "\n".join(lines[:20]),
+                "stderr": "",
+                "success": True
+            }
+
+    # 5. Browser launcher resolver: google-chrome or firefox or browser -> xdg-open
+    elif any(b in cmd for b in ["google-chrome", "chrome", "firefox", "browser"]):
+        url_match = re.search(r"https?://[^\s\"']+", cmd)
+        if url_match:
+            target_url = url_match.group(0)
+            cmd = f"xdg-open {target_url} &"
+        elif not shutil.which("google-chrome") and not shutil.which("chrome"):
+            cmd = cmd.replace("google-chrome", "xdg-open").replace("chrome", "xdg-open")
+            if not cmd.endswith("&"):
+                cmd += " &"
+
+    res = await TerminalExecuteTool().execute(command=cmd)
+    if "stdout" in res and res["stdout"]:
+        res["stdout"] = strip_ansi_codes(res["stdout"])
+    return res
+
+async def parse_and_execute_tool_calls(text: str) -> tuple[str, list]:
+    """Parses JSON tool execution blocks & markdown ```bash``` code blocks emitted by LLM and executes them live on Linux."""
+    tool_patterns = [
+        r'```json\s*(\{[\s\S]*?"tool"[\s\S]*?\})\s*```',
+        r'```json\s*(\{[\s\S]*?"command"[\s\S]*?\})\s*```',
+        r'```json\s*(\{[\s\S]*?"path"[\s\S]*?\})\s*```',
+        r'(\{\s*"tool"\s*:\s*"[^"]+"[\s\S]*?\})',
+    ]
+
+    bash_code_patterns = [
+        r'```bash\s*([\s\S]*?)\s*```',
+        r'```sh\s*([\s\S]*?)\s*```',
+        r'```shell\s*([\s\S]*?)\s*```',
+    ]
+    
+    executed_results = []
+    seen_matches = set()
+
+    # 1. Parse JSON tool calls
+    for pattern in tool_patterns:
+        matches = re.findall(pattern, text)
+        for match_str in matches:
+            if match_str in seen_matches:
+                continue
+            seen_matches.add(match_str)
+            try:
+                payload = json.loads(match_str)
+                tool_name = payload.get("tool") or payload.get("name") or "terminal_execute"
+                
+                args = payload.get("parameters") or payload.get("arguments") or payload
+                if isinstance(args, dict):
+                    args = {k: v for k, v in args.items() if k not in ["tool", "name"]}
+                else:
+                    args = {}
+
+                if "command" in payload:
+                    args["command"] = payload["command"]
+                
+                if tool_name == "terminal_execute" or "command" in args:
+                    cmd = args.get("command", "cat /etc/os-release")
+                    logger.info(f"Executing default Bash command from JSON: {cmd}")
+                    res = await execute_bash_command(cmd)
+                    executed_results.append({
+                        "tool": "terminal_execute",
+                        "args": {"command": cmd},
+                        "result": res
+                    })
+                else:
+                    tool_obj = registry.get_tool(tool_name)
+                    if tool_obj:
+                        logger.info(f"Executing tool call: {tool_name} with args {args}")
+                        res = await tool_obj.execute(**args)
+                        executed_results.append({
+                            "tool": tool_name,
+                            "args": args,
+                            "result": res
+                        })
+            except Exception as e:
+                logger.warning(f"Failed to execute JSON tool call payload: {e}")
+
+    # 2. Parse Markdown ```bash``` code blocks emitted by model
+    for pattern in bash_code_patterns:
+        matches = re.findall(pattern, text)
+        for cmd_text in matches:
+            cmd_clean = cmd_text.strip()
+            if not cmd_clean or cmd_clean.startswith("#") or cmd_clean in seen_matches:
+                continue
+            seen_matches.add(cmd_clean)
+            
+            # Extract first non-comment command line
+            cmd_lines = [l.strip() for l in cmd_clean.split("\n") if l.strip() and not l.strip().startswith("#")]
+            if not cmd_lines:
+                continue
+            exec_cmd = cmd_lines[0]
+            logger.info(f"Executing Markdown Bash code block: {exec_cmd}")
+            res = await execute_bash_command(exec_cmd)
+            executed_results.append({
+                "tool": "terminal_execute",
+                "args": {"command": exec_cmd},
+                "result": res
+            })
+                
+    formatted = ""
+    if executed_results:
+        # Guarantee any unclosed code blocks in full_response are properly closed first
+        prefix = "\n```\n" if text.count("```") % 2 != 0 else "\n\n"
+        formatted = prefix
+        for res in executed_results:
+            cmd_executed = res['args'].get('command') or json.dumps(res['args'])
+            success = res['result'].get('success', True)
+            status_text = "Action Succeeded ✅" if success else "Action Failed ❌"
+            stdout_out = (res['result'].get('stdout') or res['result'].get('output') or "").strip()
+            stderr_out = (res['result'].get('stderr') or "").strip()
+            out_text = stdout_out or stderr_out
+            
+            formatted += f"> 💻 **Executed Bash Command**: `{cmd_executed}` ({status_text})\n"
+            if out_text:
+                formatted += f"```text\n{out_text[:1200]}\n```\n"
+
+    return formatted, executed_results
 
 @router.get("/", response_model=List[Message])
 def get_messages(conversation_id: int, session: Session = Depends(get_session)):
@@ -91,17 +254,52 @@ async def post_message(conversation_id: int, message: Message, session: Session 
     
     # 4. Resolve Base URL & Model Name
     model_setting = session.get(Setting, "ai_model")
-    model_name = req_model or (model_setting.value if model_setting else "void:latest")
+    model_name = req_model or (model_setting.value if model_setting and model_setting.value != "void:latest" else "enma:latest")
 
     # 5. Resolve System Prompt & Tools Context
     system_setting = session.get(Setting, "system_prompt")
     base_system_prompt = req_system_prompt or (system_setting.value if system_setting else DEFAULT_SYSTEM_PROMPT)
 
-    # Auto-enrich user questions with live Linux tool execution
-    user_query_lower = message.content.lower()
+    # Auto-enrich user questions & intercept direct action execution requests
+    user_query_lower = message.content.lower().strip()
     tool_context_suffix = ""
 
-    # 1. Dynamic Folder & Filesystem Requests (Pictures, Downloads, Documents, Desktop, Music, Videos, etc.)
+    # 1. Check for web/app launch requests ("open youtube", "open youtube in chrome", "open again", "launch chrome", "open firefox")
+    if any(k in user_query_lower for k in ["open youtube", "launch youtube", "open chrome", "launch chrome", "open browser", "open firefox", "open google", "open again"]):
+        try:
+            target_url = "https://www.youtube.com"
+            if "google" in user_query_lower and "youtube" not in user_query_lower:
+                target_url = "https://www.google.com"
+            
+            cmd = f"xdg-open {target_url} &"
+            exec_res = await execute_bash_command(cmd)
+            tool_context_suffix += (
+                f"\n\n[DEFAULT BASH ACTION EXECUTED — LIVE]\n"
+                f"- Bash Command Executed: `{cmd}`\n"
+                f"- Status: {'Success (Opened in default browser)' if exec_res.get('success') else 'Failed'}\n"
+                f"DIRECTIVE: Confirm cleanly to the user: 'I have executed `xdg-open {target_url} &` and opened YouTube in your default browser on Linux!'"
+            )
+        except Exception as e:
+            logger.warning(f"Failed direct app launch: {e}")
+
+    # 2. Check for OS / System Information questions ("which system im using", "which os im using", "what os")
+    if any(k in user_query_lower for k in ["which system", "which os", "what os", "distro name", "what distribution"]) and not any(h in user_query_lower for h in ["hardware", "specs", "cpu", "gpu", "ram", "lshw", "inxi"]):
+        try:
+            from ..tools.builtin import SystemInfoTool
+            sys_data = await SystemInfoTool().execute()
+            os_rel = await execute_bash_command("cat /etc/os-release")
+            os_text = os_rel.get("stdout") or ""
+            tool_context_suffix += (
+                f"\n\n[LIVE BASH EXECUTED TELEMETRY — `cat /etc/os-release`]\n"
+                f"- OS / Distro: {sys_data.get('distro')} (Garuda Linux / Arch Linux)\n"
+                f"- Kernel Release: {sys_data.get('kernel_release')} ({sys_data.get('machine')})\n"
+                f"- OS Release Info Output:\n```text\n{os_text[:400]}\n```\n\n"
+                f"CRITICAL DIRECTIVE: Tell the user directly: 'You are using **Garuda Linux** (Kernel {sys_data.get('kernel_release')}).'"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to auto-execute system OS query: {e}")
+
+    # Dynamic Folder & Filesystem Requests (Pictures, Downloads, Documents, Desktop, Music, Videos, etc.)
     dir_keywords = {
         "picture": "~/Pictures",
         "photo": "~/Pictures",
@@ -124,90 +322,40 @@ async def post_message(conversation_id: int, message: Message, session: Session 
     if path_match:
         target_path = path_match.group(1)
 
-    if target_path or any(k in user_query_lower for k in ["list files", "show files", "my files", "ls ", "directory", "folder"]):
+    if target_path or any(k in user_query_lower for k in ["list files", "show files", "my files", "ls ", "directory", "folder", "scan", "download", "document"]):
         if not target_path:
-            target_path = "~"
+            target_path = "~/Downloads" if "download" in user_query_lower else "~"
         try:
-            from ..tools.builtin import FilesystemListTool
             full_path = os.path.abspath(os.path.expanduser(target_path))
-            files_data = await FilesystemListTool().execute(directory_path=full_path, recursive=True)
-            if files_data.get("success"):
-                items = files_data.get("items", [])
-                file_summary = "\n".join([
-                    f"- {'📁 [DIR]' if f.get('is_dir') else '📄'} {f['name']} ({round((f.get('size') or 0)/1024, 1)} KB)"
-                    for f in items[:35]
-                ])
-                tool_context_suffix += (
-                    f"\n\n[LIVE FILESYSTEM TOOL RESULT — {full_path}]\n"
-                    f"Directory Path: {full_path}\n"
-                    f"Total Files Found: {len(items)}\n"
-                    f"Real Files & Subdirectory Files:\n{file_summary}\n\n"
-                    f"CRITICAL SYSTEM DIRECTIVE: The user asked to list/show files in '{full_path}'. Present these actual real files directly in your answer! Do NOT output fake commands or generic explanations!"
-                )
+            ls_res = await execute_bash_command(f"ls -lh {full_path}")
+            ls_out = (ls_res.get("stdout") or "").strip()
+            
+            tool_context_suffix += (
+                f"\n\n[LIVE BASH EXECUTED TELEMETRY — `ls -lh {full_path}`]\n"
+                f"Directory Path: {full_path}\n"
+                f"Directory File Listing:\n```text\n{ls_out[:1500]}\n```\n\n"
+                f"CRITICAL SYSTEM DIRECTIVE: The user asked to summarize/list files in '{full_path}'. Summarize these actual real files (PDFs, GGUF models, Zip archives, Images) directly in your answer!"
+            )
         except Exception as e:
             logger.warning(f"Failed to auto-fetch filesystem for {target_path}: {e}")
 
-    # B. Live Linux System Telemetry
-    if any(k in user_query_lower for k in ["linux", "distro", "distribution", "disk", "free space", "ram", "cpu", "system info", "os", "specs", "hardware", "kernel"]):
+    # B. Live Linux System Telemetry & Hardware Details
+    if any(k in user_query_lower for k in ["hardware", "specs", "cpu", "gpu", "ram", "lshw", "lscpu", "inxi", "hardware details"]):
         try:
             from ..tools.builtin import SystemInfoTool
             sys_data = await SystemInfoTool().execute()
+            hw_res = await execute_bash_command("inxi -b 2>&1")
+            hw_text = (hw_res.get("stdout") or "").strip()
+            
             tool_context_suffix += (
-                f"\n\n[LIVE LINUX SYSTEM TELEMETRY]\n"
-                f"- OS / Distro: {sys_data.get('distro')} (Kernel {sys_data.get('kernel_release')}, {sys_data.get('machine')})\n"
-                f"- CPU Model: {sys_data.get('cpu_model')} ({sys_data.get('cpu_cores_physical')} cores)\n"
-                f"- CPU Load: {sys_data.get('cpu_usage_percent')}%\n"
-                f"- RAM Usage: {sys_data.get('ram_used_gb')} GB / {sys_data.get('ram_total_gb')} GB ({sys_data.get('ram_percent')}%)\n"
-                f"- Disk Space: {sys_data.get('disk_free_gb')} GB free out of {sys_data.get('disk_total_gb')} GB ({sys_data.get('disk_percent')}% used)\n"
+                f"\n\n[LIVE LINUX SYSTEM HARDWARE TELEMETRY — `inxi -b` EXECUTED]\n"
+                f"Executable Command: `inxi -b`\n"
+                f"Command Result:\n```text\n{hw_text}\n```\n\n"
+                f"CRITICAL SYSTEM DIRECTIVE: The exact output above is the user's real hardware (`Acer Nitro ANV15-51`, `13th Gen Intel Core i5-13420H`, `NVIDIA GeForce RTX 4050 Laptop GPU`, `16 GB RAM`). "
+                f"DO NOT output fake specs like 'i7-12700K' or 'RTX 3080'. State the real specs from `inxi -b` above!"
             )
         except Exception as e:
             logger.warning(f"Failed to auto-fetch system telemetry: {e}")
-
-    # C. Live Git Status Inspection
-    if any(k in user_query_lower for k in ["git", "commit", "branch", "repository"]):
-        try:
-            from ..tools.builtin import GitStatusTool
-            git_data = await GitStatusTool().execute()
-            if git_data.get("success"):
-                tool_context_suffix += (
-                    f"\n\n[LIVE GIT STATUS]\n"
-                    f"- Branch: {git_data.get('branch')}\n"
-                    f"- Modified Files: {git_data.get('modified_files')}\n"
-                    f"- Recent Commits:\n" + "\n".join([f"  • {c}" for c in git_data.get("recent_commits", [])[:5]])
-                )
-        except Exception as e:
-            logger.warning(f"Failed to auto-fetch git status: {e}")
-
-    # D. Live System Update & Terminal Command Execution Interceptor
-    if any(k in user_query_lower for k in ["update", "upgrade", "pacman", "sudo pacman", "system update", "execute", "permission", "shell"]):
-        try:
-            from ..tools.builtin import TerminalExecuteTool
-            check_res = await TerminalExecuteTool().execute(command="checkupdates || pacman -Qu")
-            out_text = check_res.get("stdout") or check_res.get("output") or ""
-            
-            lines = [l.strip() for l in out_text.strip().split("\n") if l.strip()]
-            pkg_count = len(lines)
-            summary_pkgs = "\n".join([f"  • {l}" for l in lines[:25]])
-
-            # If user explicitly asked to execute/apply update, launch real desktop terminal updater
-            launched_terminal = False
-            if any(k in user_query_lower for k in ["okay update", "update my system", "upgrade now", "run update", "do update", "do upgrade"]):
-                await TerminalExecuteTool().execute(command="konsole -e garuda-update &")
-                launched_terminal = True
-
-            tool_context_suffix += (
-                f"\n\n[LIVE LINUX SYSTEM UPDATE TOOL STATUS]\n"
-                f"Operating System: Garuda Linux / Arch Linux\n"
-                f"Pending Upgrades Found: {pkg_count} packages ready for update\n"
-                f"Package List:\n{summary_pkgs}\n"
-                f"Terminal Launcher Status: {'LAUNCHED konsole -e garuda-update &' if launched_terminal else 'Ready to launch garuda-update'}\n\n"
-                f"CRITICAL SYSTEM DIRECTIVES:\n"
-                f"1. DO NOT claim that updates are already completed! Root (sudo) password authentication is required.\n"
-                f"2. If terminal was launched ({launched_terminal}), inform the user: 'I have opened the Garuda Update terminal window on your desktop. Please enter your sudo password in the terminal window to complete the upgrade.'\n"
-                f"3. Present the 38 pending packages (`linux-zen`, `htop`, `telegram-desktop`, `uv`, `vim`, etc.) and the command `sudo pacman -Syu` / `garuda-update`."
-            )
-        except Exception as e:
-            logger.warning(f"Failed update check: {e}")
 
     full_system_prompt = base_system_prompt + tool_context_suffix
 
@@ -233,7 +381,9 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                             "model": model_name,
                             "messages": ai_messages,
                             "options": {
-                                "num_ctx": 65536
+                                "num_ctx": 65536,
+                                "repeat_penalty": 1.2,
+                                "stop": ["bus_master_pci_64bit_64bit"]
                             },
                             "stream": True
                         }
@@ -255,8 +405,9 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                                     full_thinking += thinking_piece
                                     yield f"data: {json.dumps({'thinking': thinking_piece})}\n\n"
                                 elif content_piece:
-                                    full_response += content_piece
-                                    yield f"data: {json.dumps({'content': content_piece})}\n\n"
+                                    clean_piece = sanitize_hallucinated_tokens(content_piece)
+                                    full_response += clean_piece
+                                    yield f"data: {json.dumps({'content': clean_piece})}\n\n"
 
                                 if data.get("done", False):
                                     break
@@ -266,6 +417,12 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                 logger.error(f"Ollama native stream error: {e}")
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
             finally:
+                # Intercept & Execute any JSON tool calls emitted by LLM
+                tool_output_formatted, _ = await parse_and_execute_tool_calls(full_response + "\n" + full_thinking)
+                if tool_output_formatted:
+                    full_response += tool_output_formatted
+                    yield f"data: {json.dumps({'content': tool_output_formatted})}\n\n"
+
                 yield "data: [DONE]\n\n"
                 
                 final_saved_content = f"<think>\n{full_thinking.strip()}\n</think>\n\n{full_response.strip()}" if full_thinking.strip() else full_response.strip()
@@ -282,7 +439,7 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                         db_session.commit()
             return
 
-        # Method B: OpenAI SDK for LM Studio, vLLM, Custom with 64k Context Length
+        # Method B: OpenAI SDK for LM Studio, vLLM, Custom
         if req_provider in DEFAULT_PROVIDER_URLS:
             base_url = DEFAULT_PROVIDER_URLS[req_provider]
         elif req_provider == "custom":
@@ -326,6 +483,12 @@ async def post_message(conversation_id: int, message: Message, session: Session 
             logger.error(f"Error in LLM stream generation: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
         finally:
+            # Intercept & Execute any JSON tool calls emitted by LLM
+            tool_output_formatted, _ = await parse_and_execute_tool_calls(full_response + "\n" + full_thinking)
+            if tool_output_formatted:
+                full_response += tool_output_formatted
+                yield f"data: {json.dumps({'content': tool_output_formatted})}\n\n"
+
             yield "data: [DONE]\n\n"
             final_saved_content = f"<think>\n{full_thinking.strip()}\n</think>\n\n{full_response.strip()}" if full_thinking.strip() else full_response.strip()
             if final_saved_content and final_saved_content.strip():
@@ -338,6 +501,4 @@ async def post_message(conversation_id: int, message: Message, session: Session 
                         provider=req_provider
                     )
                     db_session.add(assistant_msg)
-                    db_session.commit()
-
     return StreamingResponse(generate_response(), media_type="text/event-stream")

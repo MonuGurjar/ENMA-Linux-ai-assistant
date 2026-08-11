@@ -39,44 +39,47 @@ export function WelcomeGrid({ onSelectAction }: WelcomeGridProps) {
 
   return (
     <div className="flex flex-col items-center justify-between h-full w-full max-w-4xl mx-auto px-6 py-8 select-none">
-      {/* Top / Hero Section */}
+      {/* Top / Hero AI Core Surface */}
       <div className="flex-1 flex flex-col items-center justify-center text-center my-auto">
-        {/* Orbital Rings around Hooded Logo */}
-        <div className="relative mb-6 flex items-center justify-center">
-          {/* Outer glowing orbital ring */}
-          <div className="absolute w-36 h-36 rounded-full border border-emerald-500/20 animate-[spin_12s_linear_infinite]" />
-          <div className="absolute w-32 h-32 rounded-full border border-dashed border-emerald-400/40 animate-[spin_8s_linear_infinite_reverse]" />
-          <div className="w-24 h-24 rounded-full bg-emerald-950/60 border border-emerald-400/60 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.3)]">
-            <VoidLogo className="w-14 h-14 text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
+        {/* Concentric Glass Orbital Rings around Hooded Logo */}
+        <div className="relative mb-7 flex items-center justify-center">
+          {/* Outer glowing orbital ring 1 */}
+          <div className="absolute w-40 h-40 rounded-full border border-[#7CFF9B]/15 animate-[spin_14s_linear_infinite] shadow-[0_0_30px_rgba(124,255,155,0.08)]" />
+          {/* Middle dashed orbital ring 2 */}
+          <div className="absolute w-32 h-32 rounded-full border border-dashed border-[#7CFF9B]/35 animate-[spin_10s_linear_infinite_reverse]" />
+          {/* Inner core glass orb */}
+          <div className="w-24 h-24 rounded-full bg-[#0D151A]/90 border border-[#7CFF9B]/50 flex items-center justify-center shadow-[0_0_35px_rgba(124,255,155,0.35)] backdrop-blur-xl">
+            <VoidLogo className="w-14 h-14 text-[#7CFF9B] drop-shadow-[0_0_14px_rgba(124,255,155,0.9)]" />
           </div>
         </div>
 
         {/* Hero Title */}
-        <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-3">
-          Hello, I'm <span className="text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">VOID</span>
-          <br />
-          Your Linux AI Assistant
+        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-2">
+          Hello, I'm <span className="text-[#7CFF9B] text-green-accent">VOID</span>
         </h1>
+        <h2 className="text-xl md:text-2xl font-bold text-gray-200 tracking-tight mb-3">
+          Your Linux AI Assistant
+        </h2>
 
         {/* Hero Subtitle */}
-        <p className="text-sm md:text-base text-gray-400 max-w-lg leading-relaxed font-medium mb-8">
+        <p className="text-xs md:text-sm text-gray-400 max-w-md leading-relaxed font-medium mb-10">
           I can help you with tasks, answer questions, and automate your Linux experience.
         </p>
 
-        {/* 4 Action Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 w-full">
+        {/* 4 Quick Action Glass Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full">
           {cards.map((card) => {
             const IconComp = card.icon;
             return (
               <button
                 key={card.id}
                 onClick={() => onSelectAction && onSelectAction(card.id, card.prompt)}
-                className="flex flex-col items-start text-left p-4 rounded-2xl bg-[#12181F] border border-emerald-500/20 hover:border-emerald-400/60 hover:bg-emerald-950/30 transition-all duration-200 cursor-pointer group shadow-lg"
+                className="flex flex-col items-start text-left p-5 glass-card-futuristic cursor-pointer group"
               >
-                <div className="p-2.5 rounded-xl bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 mb-3 group-hover:scale-110 transition-transform">
-                  <IconComp className="w-5 h-5 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                <div className="p-3 rounded-2xl bg-[#7CFF9B]/10 border border-[#7CFF9B]/25 text-[#7CFF9B] mb-3.5 group-hover:scale-110 group-hover:bg-[#7CFF9B]/20 transition-all duration-200 shadow-[0_0_12px_rgba(124,255,155,0.15)]">
+                  <IconComp className="w-5 h-5 drop-shadow-[0_0_8px_rgba(124,255,155,0.8)]" />
                 </div>
-                <h3 className="font-bold text-sm text-white group-hover:text-emerald-300 transition-colors mb-1">
+                <h3 className="font-bold text-sm text-white group-hover:text-[#7CFF9B] transition-colors mb-1.5">
                   {card.title}
                 </h3>
                 <p className="text-xs text-gray-400 leading-relaxed font-normal">

@@ -69,17 +69,17 @@ function MainContentWrapper() {
   );
 
   return (
-    <div className="flex flex-1 min-h-0 w-full overflow-hidden relative z-10 p-2 gap-2">
+    <div className="flex flex-1 min-h-0 w-full overflow-hidden relative z-10 p-4 md:p-5 gap-4 md:gap-5">
       {/* Left Resizable & Collapsible Glossy Sidebar */}
       <AppSidebar width={leftWidth} onResizeStart={handleLeftResizeStart} />
 
-      {/* Central Main Workspace Canvas */}
-      <main className="flex flex-col flex-1 min-w-0 min-h-0 bg-transparent relative rounded-2xl border border-white/10 overflow-hidden shadow-2xl">
+      {/* Central Main Workspace Canvas (Hero Surface) */}
+      <main className="flex flex-col flex-1 min-w-0 min-h-0 glass-panel-futuristic rounded-3xl overflow-hidden relative shadow-2xl">
         {/* Floating Expand Triggers when sidebars are collapsed */}
         {!leftOpen && (
           <button
             onClick={toggleLeftSidebar}
-            className="absolute top-3 left-3 z-30 btn-3d-secondary p-2 rounded-xl text-cyan-400 border border-white/15 shadow-2xl hover:scale-105 active:scale-95 transition-all"
+            className="absolute top-4 left-4 z-30 p-2.5 rounded-2xl text-[#7CFF9B] bg-[#0F191E]/80 border border-[#7CFF9B]/30 backdrop-blur-xl shadow-2xl hover:scale-105 active:scale-95 transition-all"
             title="Expand Left Sidebar"
           >
             <PanelLeftOpen className="w-4 h-4" />
@@ -89,7 +89,7 @@ function MainContentWrapper() {
         {!rightOpen && (
           <button
             onClick={() => setRightOpen(true)}
-            className="absolute top-3 right-3 z-30 btn-3d-secondary p-2 rounded-xl text-cyan-400 border border-white/15 shadow-2xl hover:scale-105 active:scale-95 transition-all"
+            className="absolute top-4 right-4 z-30 p-2.5 rounded-2xl text-[#7CFF9B] bg-[#0F191E]/80 border border-[#7CFF9B]/30 backdrop-blur-xl shadow-2xl hover:scale-105 active:scale-95 transition-all"
             title="Expand Right Sidebar"
           >
             <PanelRightOpen className="w-4 h-4" />
@@ -114,9 +114,7 @@ function MainContentWrapper() {
 
 export function AppLayout() {
   return (
-    <SidebarProvider className="flex flex-col h-screen w-screen overflow-hidden spatial-bg-3d text-foreground shadow-2xl relative select-none">
-
-
+    <SidebarProvider className="flex flex-col h-screen w-screen overflow-hidden bg-glass-base text-white relative select-none">
       {/* Top Window TitleBar */}
       <TitleBar />
 

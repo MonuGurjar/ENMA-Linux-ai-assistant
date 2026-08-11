@@ -16,6 +16,12 @@ from .registry import Tool, registry
 # 1. TERMINAL TOOLS
 # ---------------------------------------------------------
 
+def strip_ansi_codes(text: str) -> str:
+    """Strips terminal ANSI escape sequences (e.g. \x1b[12m) from command output strings."""
+    if not text:
+        return ""
+    return re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+
 class TerminalExecuteTool(Tool):
     @property
     def name(self) -> str:
@@ -23,7 +29,7 @@ class TerminalExecuteTool(Tool):
 
     @property
     def description(self) -> str:
-        return "Safely execute a bash command on the Linux system and return output (stdout/stderr)."
+        return "Safely execute a bash command on the Linux system and return clean output (stdout/stderr)."
 
     @property
     def parameters_schema(self) -> Dict[str, Any]:
@@ -46,10 +52,12 @@ class TerminalExecuteTool(Tool):
                 cwd=work_dir
             )
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=45.0)
+            stdout_str = strip_ansi_codes(stdout.decode("utf-8", errors="ignore"))
+            stderr_str = strip_ansi_codes(stderr.decode("utf-8", errors="ignore"))
             return {
                 "exit_code": process.returncode,
-                "stdout": stdout.decode("utf-8", errors="ignore"),
-                "stderr": stderr.decode("utf-8", errors="ignore"),
+                "stdout": stdout_str,
+                "stderr": stderr_str,
                 "success": process.returncode == 0
             }
         except asyncio.TimeoutError:

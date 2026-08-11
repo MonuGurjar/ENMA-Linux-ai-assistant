@@ -2,10 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
-import { Send, Plus, Paperclip, Mic, Brain, ChevronDown } from "lucide-react";
+import { Send, Plus, Paperclip, Mic, Brain, ChevronDown, Square } from "lucide-react";
 
 import { WelcomeGrid } from "@/components/layout/WelcomeGrid";
-import { HorizontalModelSelector } from "@/components/layout/HorizontalModelSelector";
 import { useModelSelection } from "@/hooks/useModelSelection";
 
 interface Message {
@@ -48,7 +47,6 @@ function parseMessageParts(content: string): { thinking: string; response: strin
   // 3. Monologue thinking prefix (e.g. "Okay, the user...", "Let's see...", "I need to...")
   const monologueStartPattern = /^\s*(Okay|Let's|The user|Hmm|Wait|First,|I should|I need|I will|Thinking)/i;
   if (monologueStartPattern.test(content)) {
-    // Search for where the actual response answer starts
     const answerMarkerMatch = content.match(/(Hello!|Hi!|Hey!|Welcome|Sure!|Here is|Certainly!|Okay!|\n\n(?=[A-Z0-9]))/i);
     
     if (answerMarkerMatch && answerMarkerMatch.index !== undefined && answerMarkerMatch.index > 5) {
@@ -56,7 +54,6 @@ function parseMessageParts(content: string): { thinking: string; response: strin
       const response = content.slice(answerMarkerMatch.index).trim();
       return { thinking, response };
     } else {
-      // Still streaming thinking monologue — keep response EMPTY so no monologue leaks into body!
       return { thinking: content.trim(), response: "" };
     }
   }
@@ -109,6 +106,7 @@ export function ChatPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSendingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -136,6 +134,15 @@ export function ChatPage() {
     }
   }, [messages]);
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    isSendingRef.current = false;
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     if (isSendingRef.current) return;
@@ -149,6 +156,8 @@ export function ChatPage() {
     const assistantMsg: Message = { role: "assistant", content: "", created_at: new Date().toISOString() };
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setIsLoading(true);
+
+    abortControllerRef.current = new AbortController();
 
     try {
       let chatId = id;
@@ -173,6 +182,7 @@ export function ChatPage() {
           model: activeModel,
           provider: activeProvider,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!msgRes.ok) throw new Error("Failed to send message");
@@ -182,62 +192,58 @@ export function ChatPage() {
       const decoder = new TextDecoder();
       let thinkingAccumulator = "";
       let responseAccumulator = "";
+      let sseBuffer = "";
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunkText = decoder.decode(value, { stream: true });
-        const lines = chunkText.split("\n");
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split("\n");
+        sseBuffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const dataStr = line.replace("data: ", "").trim();
-            if (dataStr === "[DONE]") break;
-            if (!dataStr) continue;
+          const trimmedLine = line.trim();
+          if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
 
-            try {
-              const data = JSON.parse(dataStr);
-              if (data.error) throw new Error(data.error);
+          const dataStr = trimmedLine.replace(/^data:\s*/, "").trim();
+          if (dataStr === "[DONE]") break;
+          if (!dataStr) continue;
 
-              if (data.thinking) {
-                thinkingAccumulator += data.thinking;
-              }
-              if (data.content) {
-                responseAccumulator += data.content;
-              }
+          try {
+            const data = JSON.parse(dataStr);
+            if (data.error) throw new Error(data.error);
 
-              const formattedPayload = thinkingAccumulator
-                ? `<think>\n${thinkingAccumulator}\n</think>\n\n${responseAccumulator}`
-                : responseAccumulator;
-
-              setMessages((prev) => {
-                const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = {
-                  role: "assistant",
-                  content: formattedPayload,
-                  created_at: new Date().toISOString(),
-                };
-                return newMsgs;
-              });
-            } catch (e) {
-              if (dataStr && dataStr !== "[DONE]") {
-                responseAccumulator += dataStr;
-                setMessages((prev) => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1] = {
-                    role: "assistant",
-                    content: responseAccumulator,
-                    created_at: new Date().toISOString(),
-                  };
-                  return newMsgs;
-                });
-              }
+            if (data.thinking) {
+              thinkingAccumulator += data.thinking;
             }
+            if (data.content) {
+              responseAccumulator += data.content;
+            }
+
+            const formattedPayload = thinkingAccumulator
+              ? `<think>\n${thinkingAccumulator}\n</think>\n\n${responseAccumulator}`
+              : responseAccumulator;
+
+            setMessages((prev) => {
+              const newMsgs = [...prev];
+              newMsgs[newMsgs.length - 1] = {
+                role: "assistant",
+                content: formattedPayload,
+                created_at: new Date().toISOString(),
+              };
+              return newMsgs;
+            });
+          } catch (e) {
+            console.warn("Failed to parse SSE JSON line:", dataStr, e);
           }
         }
       }
     } catch (err: any) {
+      if (err.name === "AbortError") {
+        console.log("Response streaming stopped by user");
+        return;
+      }
       console.error("Failed to send message", err);
       const errMsg = err.message === "Failed to fetch"
         ? "Backend connection failed. Please ensure the FastAPI backend is running via ./start.sh"
@@ -252,6 +258,7 @@ export function ChatPage() {
     } finally {
       setIsLoading(false);
       isSendingRef.current = false;
+      abortControllerRef.current = null;
     }
   };
 
@@ -259,6 +266,8 @@ export function ChatPage() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    } else if (e.key === "Escape" && isLoading) {
+      handleStop();
     }
   };
 
@@ -270,15 +279,6 @@ export function ChatPage() {
 
   return (
     <div className="flex flex-col h-full w-full relative min-h-0 bg-[#0B0F12]">
-      {/* Top Header Row — Model Selector pinned to the right */}
-      <div className="flex items-center justify-between px-4 md:px-8 pt-2 pb-1 shrink-0 border-b border-emerald-500/10">
-        <div className="text-xs font-mono text-emerald-400/80 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>LOCAL SESSION</span>
-        </div>
-        <HorizontalModelSelector />
-      </div>
-
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto">
           <WelcomeGrid onSelectAction={handleSelectAction} />
@@ -313,7 +313,6 @@ export function ChatPage() {
                           </div>
                         ) : (
                           <>
-                            {/* Collapsible Collapsed-by-default Thinking Accordion */}
                             {thinking && (
                               <ThinkingAccordion
                                 thinkingText={thinking}
@@ -321,7 +320,6 @@ export function ChatPage() {
                               />
                             )}
                             
-                            {/* Main Answer Content */}
                             {response && (
                               <ReactMarkdown
                                 rehypePlugins={[rehypeHighlight]}
@@ -368,18 +366,6 @@ export function ChatPage() {
               );
             })}
 
-            {isLoading && (
-              <div className="flex items-start">
-                <div className="bg-transparent text-foreground max-w-[85%] rounded-2xl px-5 py-3.5">
-                  <div className="flex items-center gap-1.5 h-6">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" />
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.2s]" />
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.4s]" />
-                  </div>
-                </div>
-              </div>
-            )}
-
             {error && (
               <div className="flex items-center justify-center p-4">
                 <div className="bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-xl px-4 py-3 text-xs font-semibold flex items-center justify-between w-full max-w-md shadow-lg backdrop-blur-md">
@@ -395,15 +381,19 @@ export function ChatPage() {
         </div>
       )}
 
-      {/* Screenshot-Matching Chat Input Bar */}
-      <div className="px-4 md:px-8 pb-4 pt-2 shrink-0">
+      {/* Glass Chat Input Bar */}
+      <div className="px-4 md:px-8 pb-5 pt-2 shrink-0">
         <div className="max-w-4xl mx-auto relative">
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              handleSend();
+              if (isLoading) {
+                handleStop();
+              } else {
+                handleSend();
+              }
             }}
-            className="flex items-center gap-3 w-full bg-[#12181F] shadow-2xl rounded-2xl p-2 px-4 border border-emerald-500/30 focus-within:border-emerald-400/80 transition-all"
+            className="flex items-center gap-3 w-full glass-input-bar p-2.5 px-5 shadow-2xl border border-[#7CFF9B]/25 focus-within:border-[#7CFF9B]/60 transition-all"
           >
             <input
               type="text"
@@ -411,32 +401,45 @@ export function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask anything or give a command..."
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none px-2 py-1.5 font-medium"
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-400 outline-none px-2 py-1 font-medium"
             />
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="p-2 text-gray-400 hover:text-emerald-400 hover:bg-white/5 rounded-xl transition-all active:scale-95"
+                className="p-2 text-gray-400 hover:text-[#7CFF9B] hover:bg-white/5 rounded-xl transition-all active:scale-95 cursor-pointer"
                 title="Attach file"
               >
                 <Paperclip className="w-4 h-4" />
               </button>
               <button
                 type="button"
-                className="p-2 text-gray-400 hover:text-emerald-400 hover:bg-white/5 rounded-xl transition-all active:scale-95 hidden sm:flex"
+                className="p-2 text-gray-400 hover:text-[#7CFF9B] hover:bg-white/5 rounded-xl transition-all active:scale-95 hidden sm:flex cursor-pointer"
                 title="Voice input"
               >
                 <Mic className="w-4 h-4" />
               </button>
-              <button
-                type="submit"
-                disabled={!input.trim() || isLoading}
-                className="bg-emerald-500 hover:bg-emerald-400 text-black p-2.5 rounded-xl disabled:opacity-40 transition-all active:scale-95 shadow-[0_0_14px_rgba(16,185,129,0.5)] flex items-center justify-center font-bold cursor-pointer"
-                title="Send command"
-              >
-                <Send className="w-4 h-4 text-black" />
-              </button>
+
+              {isLoading ? (
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="px-3 py-2 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/40 hover:bg-rose-500/30 transition-all active:scale-95 flex items-center gap-1.5 font-bold text-xs cursor-pointer shadow-[0_0_15px_rgba(244,63,94,0.3)] animate-pulse"
+                  title="Stop response generation (Esc)"
+                >
+                  <Square className="w-3.5 h-3.5 fill-rose-400" />
+                  <span>Stop</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className="w-9 h-9 rounded-xl bg-gradient-to-r from-[#7CFF9B] to-[#35D6A0] text-[#060B0E] disabled:opacity-40 transition-all active:scale-95 shadow-[0_0_16px_rgba(124,255,155,0.4)] flex items-center justify-center font-bold cursor-pointer hover:scale-105"
+                  title="Send command"
+                >
+                  <Send className="w-4 h-4 text-[#060B0E]" />
+                </button>
+              )}
             </div>
           </form>
         </div>

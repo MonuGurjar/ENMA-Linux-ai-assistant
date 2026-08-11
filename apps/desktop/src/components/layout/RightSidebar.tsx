@@ -115,17 +115,17 @@ export function RightSidebar({
         damping: 36,
         mass: 0.8,
       }}
-      className="shrink-0 h-full rounded-2xl border border-emerald-500/20 bg-[#0B0F12] shadow-2xl overflow-hidden select-none relative z-20"
+      className="shrink-0 h-full rounded-3xl glass-panel-futuristic overflow-hidden select-none relative z-20"
     >
       <div
         style={{ width: `${width}px` }}
-        className="h-full flex flex-col justify-between p-3.5 space-y-4 overflow-y-auto no-scrollbar"
+        className="h-full flex flex-col justify-between p-4 space-y-4 overflow-y-auto no-scrollbar"
       >
         {/* Left Edge Resize Handle */}
         {open && onResizeStart && (
           <div
             onMouseDown={onResizeStart}
-            className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-emerald-400/50 transition-colors z-30 flex items-center justify-center"
+            className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-[#7CFF9B]/40 transition-colors z-30 flex items-center justify-center"
             title="Drag to resize sidebar"
           >
             <div className="w-0.5 h-8 bg-white/20 rounded-full" />
@@ -133,14 +133,14 @@ export function RightSidebar({
         )}
 
         {/* 1. TOP PANEL: VOID TOOLS */}
-        <div className="p-3.5 rounded-2xl bg-[#12181F] border border-emerald-500/20 space-y-3 shadow-md">
+        <div className="p-4 rounded-2xl glass-card-futuristic space-y-3 shadow.xl">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold tracking-wider uppercase text-white">
               VOID Tools
             </span>
             <div className="flex items-center gap-1.5">
               <button
-                className="p-1 rounded-lg text-emerald-400 hover:bg-emerald-950/60 transition-all"
+                className="w-7 h-7 rounded-xl bg-[#7CFF9B]/10 border border-[#7CFF9B]/25 text-[#7CFF9B] flex items-center justify-center hover:bg-[#7CFF9B]/20 transition-all cursor-pointer"
                 title="Add Custom Tool"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -148,7 +148,7 @@ export function RightSidebar({
               {onToggle && (
                 <button
                   onClick={onToggle}
-                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                  className="w-7 h-7 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center cursor-pointer"
                   title="Collapse Panel"
                 >
                   <PanelRightClose className="w-3.5 h-3.5" />
@@ -164,16 +164,16 @@ export function RightSidebar({
                 <div
                   key={tool.id}
                   onClick={() => onSelectTool && onSelectTool(tool.id)}
-                  className="flex items-start gap-3 p-2.5 rounded-xl bg-[#0B0F12] border border-white/5 hover:border-emerald-500/40 hover:bg-emerald-950/20 transition-all cursor-pointer group"
+                  className="flex items-center gap-3 p-3 rounded-2xl bg-[#0D151A]/60 border border-white/5 hover:border-[#7CFF9B]/35 hover:bg-[#7CFF9B]/10 transition-all cursor-pointer group"
                 >
-                  <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 group-hover:scale-110 transition-transform">
-                    <IconComp className="w-4 h-4 drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                  <div className="w-9 h-9 rounded-xl bg-[#7CFF9B]/10 border border-[#7CFF9B]/25 text-[#7CFF9B] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-[0_0_10px_rgba(124,255,155,0.15)]">
+                    <IconComp className="w-4 h-4 drop-shadow-[0_0_6px_rgba(124,255,155,0.8)]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
+                    <div className="text-xs font-bold text-white group-hover:text-[#7CFF9B] transition-colors">
                       {tool.title}
                     </div>
-                    <div className="text-[10px] text-gray-400 truncate leading-tight">
+                    <div className="text-[11px] text-gray-400 truncate leading-tight mt-0.5">
                       {tool.description}
                     </div>
                   </div>
@@ -184,18 +184,18 @@ export function RightSidebar({
         </div>
 
         {/* 2. BOTTOM PANEL: SYSTEM STATUS (REAL LIVE TELEMETRY) */}
-        <div className="p-3.5 rounded-2xl bg-[#12181F] border border-emerald-500/20 space-y-3 shadow-md">
+        <div className="p-4 rounded-2xl glass-card-futuristic space-y-3 shadow-xl">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold tracking-wider uppercase text-white">
               System Status
             </span>
-            <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-mono text-[#7CFF9B] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#7CFF9B] animate-pulse shadow-[0_0_6px_rgba(124,255,155,0.8)]" />
               LIVE
             </span>
           </div>
 
-          <div className="space-y-2 text-xs font-mono">
+          <div className="space-y-2.5 text-xs font-mono">
             {/* OS */}
             <div className="flex justify-between items-center text-gray-300">
               <span className="text-gray-400">OS</span>
@@ -205,7 +205,7 @@ export function RightSidebar({
             {/* Kernel */}
             <div className="flex justify-between items-center text-gray-300">
               <span className="text-gray-400">Kernel</span>
-              <span className="text-emerald-400 text-[11px] truncate max-w-[160px]">
+              <span className="text-[#7CFF9B] text-[11px] truncate max-w-[160px]">
                 {telemetry.kernel}
               </span>
             </div>
@@ -217,46 +217,46 @@ export function RightSidebar({
             </div>
 
             {/* Memory Bar */}
-            <div className="space-y-1 pt-1">
+            <div className="space-y-1.5 pt-1">
               <div className="flex justify-between text-[11px]">
                 <span className="text-gray-400">Memory</span>
-                <span className="text-emerald-400 font-bold">
+                <span className="text-[#7CFF9B] font-bold">
                   {telemetry.memory.used_gb} GB / {telemetry.memory.total_gb} GB ({telemetry.memory.percent}%)
                 </span>
               </div>
-              <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-[#070B0E] rounded-full overflow-hidden border border-[#7CFF9B]/15">
                 <div
-                  className="h-full bg-emerald-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                  className="h-full bg-gradient-to-r from-[#7CFF9B] to-[#35D6A0] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(124,255,155,0.6)]"
                   style={{ width: `${Math.min(telemetry.memory.percent, 100)}%` }}
                 />
               </div>
             </div>
 
             {/* CPU Bar */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex justify-between text-[11px]">
                 <span className="text-gray-400">CPU</span>
-                <span className="text-emerald-400 font-bold">{telemetry.cpu.percent}%</span>
+                <span className="text-[#7CFF9B] font-bold">{telemetry.cpu.percent}%</span>
               </div>
-              <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-[#070B0E] rounded-full overflow-hidden border border-[#7CFF9B]/15">
                 <div
-                  className="h-full bg-emerald-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                  className="h-full bg-gradient-to-r from-[#7CFF9B] to-[#35D6A0] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(124,255,155,0.6)]"
                   style={{ width: `${Math.min(telemetry.cpu.percent, 100)}%` }}
                 />
               </div>
             </div>
 
             {/* Storage Bar */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex justify-between text-[11px]">
                 <span className="text-gray-400">Storage</span>
-                <span className="text-emerald-400 font-bold">
+                <span className="text-[#7CFF9B] font-bold">
                   {telemetry.storage.used_gb} GB / {telemetry.storage.total_gb} GB ({telemetry.storage.percent}%)
                 </span>
               </div>
-              <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-[#070B0E] rounded-full overflow-hidden border border-[#7CFF9B]/15">
                 <div
-                  className="h-full bg-emerald-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                  className="h-full bg-gradient-to-r from-[#7CFF9B] to-[#35D6A0] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(124,255,155,0.6)]"
                   style={{ width: `${Math.min(telemetry.storage.percent, 100)}%` }}
                 />
               </div>

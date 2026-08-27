@@ -1,78 +1,67 @@
-<h1 align="center">🌌 VOID — Intelligent Linux AI Assistant</h1>
+<h1 align="center">🌌 VOID — Autonomous Linux AI Assistant</h1>
 
 <p align="center">
-  <strong>Privacy-first · Local-first · Offline-capable</strong><br/>
-  A desktop AI assistant that makes Linux interaction as natural as conversation.
+  <strong>Privacy-first · Local-first · Arch & Garuda Linux Native</strong><br/>
+  An intelligent desktop AI assistant that brings natural language command execution, system control, and real-time hardware telemetry to your Linux desktop.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.4.0-blueviolet?style=flat-square" alt="Version" />
-  <img src="https://img.shields.io/badge/platform-Linux-8A2BE2?style=flat-square&logo=linux&logoColor=white" alt="Platform" />
-  <img src="https://img.shields.io/badge/license-GPLv3-purple?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/badge/status-Active%20Development-violet?style=flat-square" alt="Status" />
+  <img src="https://img.shields.io/badge/version-1.0.0--beta-7CFF9B?style=flat-square&logoColor=black" alt="Version" />
+  <img src="https://img.shields.io/badge/platform-Garuda%20%7C%20Arch%20Linux-8A2BE2?style=flat-square&logo=archlinux&logoColor=white" alt="Platform" />
+  <img src="https://img.shields.io/badge/license-MIT-purple?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/badge/status-Phase%201%20Completed-brightgreen?style=flat-square" alt="Status" />
 </p>
-
 
 ---
 
 ## 🌌 Vision
 
-> *Build a trustworthy AI assistant that helps Linux users learn, automate, and operate their systems confidently while maintaining complete control over their data.*
+> *Build a powerful, privacy-first AI operating companion for Linux that executes terminal operations autonomously, explains system state, and streamlines everyday desktop workflows with complete data sovereignty.*
 
-VOID safely translates natural language into system actions — it **teaches Linux** rather than hiding it, and never takes autonomous action without your approval.
+VOID translates natural language into direct system actions — executing commands via an autonomous Bash execution pipeline, displaying real-time hardware telemetry, and offering an ultra-futuristic dark glassmorphism UI.
 
 ### Core Principles
 
 | Principle | Description |
 |---|---|
-| 🔒 **Privacy First** | All AI models run locally. No data leaves your machine. Zero telemetry. |
-| 🔍 **Transparency** | Every action is explainable — see exactly what VOID plans to do before it does it. |
-| 🛡️ **Safety** | Destructive operations always require explicit user confirmation. |
-| 📚 **Learning Over Replacing** | VOID teaches you Linux commands rather than abstracting them away. |
-| 🧩 **Extensibility** | Plugin-based architecture — extend VOID to fit your workflow. |
+| 🔒 **100% Local & Private** | All AI models run locally via Ollama / vLLM. Zero telemetry. No cloud dependencies. |
+| ⚡ **Autonomous Bash Execution** | Direct terminal tool execution (`terminal_execute`) for real-time Linux operating system control. |
+| 🛡️ **Garuda & Arch Native** | Native command resolvers for `pacman`, `garuda-update`, `journalctl`, `inxi`, and `xdg-open`. |
+| 🎨 **Futuristic UX** | Dark glassmorphism layout (`#070B0E`), glowing neon accents (`#7CFF9B`), and 3-column floating panels. |
+| 💬 **Full Chat Control** | Instant "+ New Chat", Recent Chat History list with 1-click delete, and live "Stop Generation" stream control. |
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
 <table>
 <tr>
 <td width="50%">
 
-### 💬 Conversational AI
-- Natural language chat with local LLMs
-- Streaming responses with Markdown rendering
-- Syntax-highlighted code blocks with copy support
-- Conversation history with search, rename & delete
+### 💬 Advanced Chat & Stream Control
+- **Streaming SSE Engine**: Real-time token streaming with `<think>` accordion parsing.
+- **Stop Generation Control**: 1-click **Stop** button and `Esc` key abort for streaming outputs.
+- **Chat Management**: "+ New Chat" quick creation, Recent Chat History with deletion, and prompt editing.
+- **Repetition Safeguards**: Built-in repetition penalty (`repeat_penalty: 1.2`) and hallucinated token sanitization.
 
-### 🧠 Local AI Engine
-- **Ollama** & **LM Studio** integration
-- Hot-swap between providers & models
-- OpenAI-compatible API support
-- Fully offline — no cloud dependency
-
-### 🖥️ System Integration
-- Execute Linux commands via natural language
-- File operations & system control
-- Real-time system monitoring (CPU, RAM, GPU)
+### 🖥️ Linux System Telemetry & Control
+- **Autonomous Terminal Tool**: Direct execution of Linux commands without verbose Python tool clutter.
+- **Real-Time Telemetry**: Instant CPU, GPU (NVIDIA / Intel), RAM, VRAM, and Storage monitoring (`inxi -b -c 0`).
+- **Clean Terminal Output**: Automated ANSI escape sequence stripper for crisp markdown text without unicode boxes.
 
 </td>
 <td width="50%">
 
-### 📄 Document Understanding
-- PDF, DOCX, TXT, Markdown, CSV, JSON
-- Code file analysis
-- RAG-powered knowledge base (coming soon)
+### 🛡️ Smart Arch / Garuda Resolvers
+- **System Upgrades**: Auto-launches interactive terminal updater (`konsole -e garuda-update &` / `sudo pacman -Syu`).
+- **Log Inspection**: Resolves `/var/log/syslog` requests directly to `journalctl -n 50 --no-pager`.
+- **App & Web Launching**: Maps browser/web requests to `xdg-open` in background.
+- **Package Checking**: Checks repository updates via `pacman -Qu`.
 
-### 🎙️ Voice Assistant *(Planned)*
-- Speech-to-Text via Faster Whisper
-- Text-to-Speech via Piper
-- Hands-free interaction
-
-### 🔌 Plugin System *(Planned)*
-- Extensible tool & plugin SDK
-- Community marketplace
-- Custom automation workflows
+### 📚 Upcoming Capabilities *(Roadmap)*
+- **Phase 2 — RAG & Documents**: PDF, DOCX, Markdown, and repository code indexing.
+- **Phase 3 — Long-Term Memory**: Persistent vector memory for user preferences & facts.
+- **Phase 4 — Local Voice Assistant**: STT (Faster Whisper) & TTS (Piper).
 
 </td>
 </tr>
@@ -83,30 +72,32 @@ VOID safely translates natural language into system actions — it **teaches Lin
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Tauri Desktop App                     │
-│  ┌──────────┐  ┌───────────────────┐  ┌──────────────┐  │
-│  │   Left   │  │    Chat Canvas    │  │    Right     │  │
-│  │ Sidebar  │  │  + Model Selector │  │   Sidebar    │  │
-│  │ (History)│  │  + Welcome Grid   │  │  (Monitor)   │  │
-│  └──────────┘  └───────────────────┘  └──────────────┘  │
-└────────────────────────┬────────────────────────────────┘
-                         │ IPC / HTTP
-              ┌──────────▼──────────┐
-              │   FastAPI Backend   │
-              │  ┌────────────────┐ │
-              │  │  Orchestrator  │ │
-              │  ├────────────────┤ │
-              │  │  LLM Provider  │──── Ollama / LM Studio
-              │  ├────────────────┤ │
-              │  │  Tool Manager  │──── Linux System Tools
-              │  ├────────────────┤ │
-              │  │   SQLite DB    │ │
-              │  └────────────────┘ │
-              └─────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                   Vite + React 19 Desktop UI                     │
+│  ┌──────────────────┬─────────────────────────┬───────────────┐  │
+│  │   Left Sidebar   │   Main AI Workspace     │ Right Sidebar │  │
+│  │ • + New Chat     │ • Model Selector        │ • Live Status │  │
+│  │ • Navigation     │ • Chat Stream           │ • CPU/GPU/RAM │  │
+│  │ • Recent History │ • Stop Stream Control   │   Telemetry   │  │
+│  └──────────────────┴─────────────────────────┴───────────────┘  │
+└────────────────────────────────┬─────────────────────────────────┘
+                                 │ HTTP SSE Stream (Port 8000)
+                     ┌───────────▼───────────┐
+                     │    FastAPI Backend    │
+                     │ ┌───────────────────┐ │
+                     │ │ Chat Orchestrator │ │
+                     │ ├───────────────────┤ │
+                     │ │ Command Resolvers │──── Linux Shell (`terminal_execute`)
+                     │ ├───────────────────┤ │
+                     │ │ SQLite DB (v1)    │ │
+                     │ └───────────────────┘ │
+                     └───────────┬───────────┘
+                                 │ Local API
+                     ┌───────────▼───────────┐
+                     │   Ollama Local LLM    │
+                     │    (`enma:latest`)    │
+                     └───────────────────────┘
 ```
-
-> **Security Model:** UI never talks to the OS directly. LLM never executes system actions directly. All actions are routed through the Tool Manager with permission checks and user approval for destructive operations.
 
 ---
 
@@ -114,17 +105,13 @@ VOID safely translates natural language into system actions — it **teaches Lin
 
 | Layer | Technology |
 |---|---|
-| **Desktop Shell** | Tauri v2 (Rust) |
-| **Frontend** | React 19, TypeScript, Vite 7, Tailwind CSS v4 |
-| **UI Components** | shadcn/ui, Lucide Icons, Framer Motion |
-| **Backend** | FastAPI (Python 3.13+), Uvicorn |
-| **Database** | SQLite (SQLModel ORM) |
-| **Vector DB** | Qdrant *(planned)* |
-| **AI Providers** | Ollama, LM Studio, OpenAI-compatible APIs |
-| **Voice** | Faster Whisper (STT), Piper (TTS) *(planned)* |
-| **Package Managers** | pnpm (frontend), uv (Python), Cargo (Rust) |
-| **Code Quality** | ESLint, Prettier, Ruff, Black, mypy |
-| **Testing** | Pytest, Vitest, React Testing Library |
+| **Frontend Framework** | React 19, TypeScript, Vite 7, Tailwind CSS |
+| **Icons & Animations** | Lucide Icons, Framer Motion |
+| **Backend Engine** | FastAPI (Python 3.13+), Uvicorn, SQLModel |
+| **Database** | SQLite (`void.db`) |
+| **Local AI Engine** | Ollama (`enma:latest`, `qwen2.5`, `llama3.2`) / vLLM |
+| **Linux Execution** | Async Subprocess Shell (`terminal_execute`) |
+| **Package Managers** | pnpm (frontend), uv (Python) |
 
 ---
 
@@ -132,152 +119,54 @@ VOID safely translates natural language into system actions — it **teaches Lin
 
 ### Prerequisites
 
-- **Linux** (any modern distro)
+- **Garuda Linux**, **Arch Linux**, or any modern Linux distribution
 - **Node.js** ≥ 20 & **pnpm**
 - **Python** ≥ 3.13 & **uv**
-- **Rust** (for Tauri — optional for dev server)
-- **Ollama** or **LM Studio** (for local AI)
+- **Ollama** installed locally (`ollama pull enma:latest` or `ollama pull qwen2.5`)
 
-### Installation
+### Installation & Launch
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/MonuGurjar/VOID-Linux-ai-assistant.git
 cd VOID-Linux-ai-assistant
 
-# 2. Install frontend dependencies
+# 2. Install dependencies
 pnpm install
 
-# 3. Start the backend
+# 3. Start the FastAPI Backend (Port 8000)
 cd apps/backend
-uv sync
 uv run uvicorn main:app --reload --port 8000
 
-# 4. Start the frontend (in a new terminal)
+# 4. Start the React Desktop App (in a new terminal)
 cd apps/desktop
 pnpm dev
 ```
 
-### Start Ollama (if using Ollama)
-
-```bash
-# Pull a model
-ollama pull llama3.2
-
-# Ollama serves on http://localhost:11434 by default
-```
-
-Open the app at `http://localhost:5173` — select your provider and model from the top-right selector, and start chatting!
-
 ---
 
-## 📁 Project Structure
-
-```
-VOID-ai-assistant/
-├── apps/
-│   ├── backend/          # FastAPI Python backend
-│   │   ├── src/          # Source modules
-│   │   ├── main.py       # Entry point
-│   │   └── pyproject.toml
-│   └── desktop/          # Tauri + React frontend
-│       ├── src/
-│       │   ├── components/  # UI components (Sidebar, Layout, etc.)
-│       │   ├── hooks/       # Custom React hooks
-│       │   ├── pages/       # Route pages (ChatPage, Settings)
-│       │   └── App.tsx      # Root app component
-│       └── package.json
-├── packages/             # Shared packages (monorepo)
-├── docs/                 # Architecture, PRD, Security, API docs
-├── development/          # Phase-by-phase implementation plan
-└── pnpm-workspace.yaml   # Monorepo workspace config
-```
-
----
-
-## 🗺️ Roadmap
+## 🗺️ Roadmap & Progress Status
 
 | Phase | Status | Description |
 |---|---|---|
-| Phase 0 — Foundation | ✅ Done | Project scaffold, monorepo, backend + frontend setup |
-| Phase 1 — Core UI | ✅ Done | Chat interface, sidebar, conversations, streaming |
-| Phase 2 — Local AI | 🔄 In Progress | Ollama/LM Studio integration, model management |
-| Phase 3 — Knowledge Engine | ⬜ Planned | RAG pipeline, document ingestion, Qdrant |
-| Phase 4 — Memory | ⬜ Planned | Persistent memory, context across sessions |
-| Phase 5 — Voice | ⬜ Planned | STT (Faster Whisper) + TTS (Piper) |
-| Phase 6 — Project Intelligence | ⬜ Planned | Codebase-aware assistance |
-| Phase 7 — Automation | ⬜ Planned | Scheduled tasks, workflows |
-| Phase 8 — Plugin Platform | ⬜ Planned | Plugin SDK, community marketplace |
-| Phase 9 — Advanced Linux | ⬜ Planned | Containers, SSH, VMs |
-| Phase 10 — Multimodal | ⬜ Planned | Image, OCR, screenshot analysis |
-| Phase 11 — Personal Workspace | ⬜ Planned | Dashboard, widgets, custom workflows |
-| Phase 12 — Polish | ⬜ Planned | Performance, accessibility, final QA |
-
----
-
-## 🚫 Explicitly Out of Scope (v1)
-
-- Cloud-only operation or SaaS model
-- User accounts, OAuth, or multi-user support
-- Telemetry, analytics, or data collection
-- Autonomous system modifications without approval
-- Windows/macOS support (Linux-only for v1)
-- Enterprise or commercial features
-
----
-
-## 📖 Documentation
-
-Detailed documentation lives in the [`docs/`](docs/) folder:
-
-| Document | Description |
-|---|---|
-| [Vision](docs/Vision.md) | Project vision & core principles |
-| [PRD](docs/PRD.md) | Product Requirements Document |
-| [SRS](docs/SRS.md) | Software Requirements Specification (IEEE 830 / ISO 29148) |
-| [Problem Statement & Requirements](docs/Problem-Statement-and-Requirements.md) | Problem statement & Functional / Non-Functional Requirements |
-| [System Architecture](docs/System-Architecture.md) | Component design & data flow |
-| [Tech Stack](docs/Tech-stack.md) | Technology choices & rationale |
-| [API Documentation](docs/API-Documentation.md) | Backend REST API reference |
-| [Database Design](docs/Database-Design.md) | Schema & data models |
-| [AI Pipeline](docs/AI-Pipeline.md) | LLM integration & inference pipeline |
-| [RAG Documentation](docs/RAG-Documentation.md) | Retrieval-Augmented Generation design |
-| [Agent System](docs/Agent-System.md) | AI agent architecture |
-| [Tool Calling](docs/Tool-Calling.md) | System tool execution framework |
-| [Voice System](docs/Voice-System.md) | STT/TTS pipeline design |
-| [Security](docs/Security.md) | Security model & threat mitigation |
-| [Testing](docs/Testing.md) | Testing strategy & guidelines |
-| [Roadmap](docs/Roadmap.md) | Full development roadmap |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! VOID follows these development principles:
-
-1. **Local-first by default** — features must work offline
-2. **AI assists, never controls** — user always has final say
-3. **Security before convenience** — never cut corners on safety
-4. **Privacy before features** — never add telemetry or tracking
-5. **Quality before quantity** — every phase must compile, pass tests, and have updated docs
-
-```bash
-# Run frontend type checks
-cd apps/desktop && npx tsc --noEmit
-
-# Run backend linting
-cd apps/backend && uv run ruff check .
-```
+| **Phase 0 — Foundation** | ✅ **Done** | Architecture scaffold, FastAPI backend + React 19 frontend monorepo |
+| **Phase 1 — Core Execution & UI** | ✅ **Done** | Dark glassmorphism 3-column UI, "+ New Chat", Recent History, Stop Stream button, `<think>` accordion |
+| **Phase 2 — Arch/Garuda Command Resolvers** | ✅ **Done** | Autonomous Bash tool calling, `garuda-update`, `journalctl`, `inxi -b -c 0`, `xdg-open`, ANSI stripper |
+| **Phase 3 — Knowledge Engine (RAG)** | 🔄 **Next** | PDF/DOCX document chat, repository indexing, local vector store |
+| **Phase 4 — Long-Term Memory** | ⬜ Planned | Vector memory manager for user preferences & facts across sessions |
+| **Phase 5 — Local Voice Interface** | ⬜ Planned | Speech-to-Text (Faster-Whisper) & Text-to-Speech (Piper) push-to-talk overlay |
+| **Phase 6 — Linux Automation** | ⬜ Planned | Scheduled cron workflows, daily backup & package maintenance routines |
+| **Phase 7 — Plugin Platform & MCP** | ⬜ Planned | VOID Plugin SDK & Model Context Protocol (MCP) server integration |
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+Licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <p align="center">
   <sub>Built with 💜 for the Linux community</sub><br/>
-  <sub><strong>VOID</strong> — Your private, intelligent Linux companion</sub>
+  <sub><strong>VOID</strong> — Autonomous Linux AI Assistant</sub>
 </p>

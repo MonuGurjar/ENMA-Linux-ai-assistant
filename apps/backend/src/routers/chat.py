@@ -10,6 +10,7 @@ import httpx
 import re
 
 import os
+import shutil
 from openai import AsyncOpenAI
 from ..db import get_session, engine
 from ..models.chat import Message, Conversation
@@ -182,13 +183,21 @@ async def parse_and_execute_tool_calls(text: str) -> tuple[str, list]:
             if not cmd_lines:
                 continue
             exec_cmd = cmd_lines[0]
-            logger.info(f"Executing Markdown Bash code block: {exec_cmd}")
-            res = await execute_bash_command(exec_cmd)
-            executed_results.append({
-                "tool": "terminal_execute",
-                "args": {"command": exec_cmd},
-                "result": res
-            })
+            try:
+                logger.info(f"Executing Markdown Bash code block: {exec_cmd}")
+                res = await execute_bash_command(exec_cmd)
+                executed_results.append({
+                    "tool": "terminal_execute",
+                    "args": {"command": exec_cmd},
+                    "result": res
+                })
+            except Exception as e:
+                logger.error(f"Error executing bash command '{exec_cmd}': {e}")
+                executed_results.append({
+                    "tool": "terminal_execute",
+                    "args": {"command": exec_cmd},
+                    "result": {"error": str(e), "success": False}
+                })
                 
     formatted = ""
     if executed_results:
